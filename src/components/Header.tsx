@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, Ticket, User, ShoppingCart, LogOut } from 'lucide-react';
+ import { Search, Menu, X, Ticket, User, ShoppingCart, LogOut, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { User as SupabaseUser } from '@supabase/supabase-js';
+ import { useUser, useClerk } from '@clerk/clerk-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,24 +17,13 @@ import { toast } from 'sonner';
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
+   const location = useLocation();
+   const navigate = useNavigate();
+   const { user, isLoaded } = useUser();
+   const { signOut } = useClerk();
+ 
+   const handleSignOut = async () => {
+     await signOut();
     toast.success('Signed out successfully');
     navigate('/');
   };
@@ -112,31 +100,31 @@ export const Header = () => {
             </Link>
 
             {/* User Menu */}
-            {user ? (
+             {isLoaded && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
-                      <span className="text-primary-foreground font-semibold text-sm">
-                        {user.email?.charAt(0).toUpperCase()}
-                      </span>
+                       <span className="text-primary-foreground font-semibold text-sm">
+                         {user.firstName?.charAt(0) || user.primaryEmailAddress?.emailAddress?.charAt(0).toUpperCase()}
+                       </span>
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 glass-strong">
                   <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium text-foreground">{user.email}</p>
+                     <p className="text-sm font-medium text-foreground">{user.primaryEmailAddress?.emailAddress}</p>
                     <p className="text-xs text-muted-foreground">Signed in</p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
-                    <User className="w-4 h-4 mr-2" />
-                    My Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/tickets')}>
-                    <Ticket className="w-4 h-4 mr-2" />
-                    My Tickets
-                  </DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => navigate('/my-bookings')}>
+                     <History className="w-4 h-4 mr-2" />
+                     My Bookings
+                   </DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => navigate('/favorites')}>
+                     <Ticket className="w-4 h-4 mr-2" />
+                     My Favorites
+                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                     <LogOut className="w-4 h-4 mr-2" />
