@@ -1,154 +1,246 @@
 
-# Integration Plan: Connect Lovable Frontend to Your External MERN Backend
+# Frontend Integration Plan: Connect to Your MERN Backend
 
-## Overview
+## Summary
 
-Your existing MERN backend uses:
-- **Express.js** server running on port 3000
-- **MongoDB** for data storage
-- **Clerk** for authentication
-- **Razorpay** for payments
-- **TMDB API** for movie data
-- **Inngest** for background jobs (payment checks, email notifications)
-
-The current Lovable project uses:
-- **Lovable Cloud (Supabase/PostgreSQL)** for database
-- **Supabase Auth** for authentication  
-- **Edge Functions** for server-side processing
-
-**Key Decision Required**: You have two paths forward:
+This plan modifies your Lovable frontend to work with your local MERN backend running at `http://localhost:3000`. I'll replace Supabase authentication with Clerk, update all data fetching to call your Express APIs, and integrate the full Razorpay payment flow.
 
 ---
 
-## Option A: Connect Frontend to Your MERN Backend (Recommended if you want to use your existing backend)
+## Your Backend API Endpoints (Reference)
 
-This will modify the Lovable frontend to call your external MERN APIs instead of Supabase.
+Based on your repository, here are the endpoints the frontend will call:
 
-### Frontend Changes Required
-
-1. **Create API Configuration**
-   - Add a new file `src/lib/api.ts` with axios configuration pointing to your backend URL
-   - Configure axios interceptors for Clerk authentication tokens
-
-2. **Replace Supabase Auth with Clerk**
-   - Install `@clerk/clerk-react` package
-   - Replace `Auth.tsx` with Clerk's sign-in/sign-up components
-   - Update `Header.tsx` to use Clerk's `useUser()` and `useAuth()` hooks
-   - Create an `AuthProvider` wrapper using `ClerkProvider`
-
-3. **Update Data Fetching**
-   - Modify `Events.tsx` to fetch from `/api/show/all` endpoint
-   - Update `EventDetail.tsx` to fetch movie details from `/api/show/:movieId`
-   - Update `SeatSelector.tsx` to fetch occupied seats from `/api/booking/seats/:showId`
-
-4. **Update Booking Flow**
-   - Modify `Checkout.tsx` to call `/api/booking/create` with Clerk token
-   - Handle Razorpay order response and launch Razorpay checkout modal
-   - Call `/api/payment/verify-payment` on payment success
-
-5. **Add My Bookings Page**
-   - Create new page fetching from `/api/user/bookings`
-
-6. **Add Favorites Feature**
-   - Implement favorite toggle calling `/api/user/update-favorite`
-
-### Backend Changes Required for Your MERN Server
-
-1. **CORS Configuration**
-   Update `server.js` to allow requests from Lovable's preview and published URLs:
-   ```javascript
-   app.use(cors({
-     origin: [
-       'https://id-preview--95350e67-f0bf-48f0-90d1-522f7504e5de.lovable.app',
-       'http://localhost:5173',
-       // Add your published URL when deployed
-     ],
-     credentials: true
-   }));
-   ```
-
-2. **Environment Variables**
-   Ensure your backend is deployed (e.g., on Render, Railway, or Vercel) and accessible via HTTPS
-
-3. **Razorpay Webhook**
-   Configure Razorpay webhook URL to point to your deployed backend's `/api/payment/webhook` endpoint
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/show/all` | GET | Get all shows (movies with upcoming showtimes) |
+| `/api/show/:movieId` | GET | Get movie details + available showtimes |
+| `/api/booking/seats/:showId` | GET | Get occupied seats for a show |
+| `/api/booking/create` | POST | Create booking (requires auth) |
+| `/api/payment/create-order` | POST | Create Razorpay order |
+| `/api/payment/verify-payment` | POST | Verify payment signature |
+| `/api/user/bookings` | GET | Get user's bookings (requires auth) |
+| `/api/user/update-favorite` | POST | Toggle favorite movie |
+| `/api/user/favorites` | GET | Get user's favorites |
 
 ---
 
-## Option B: Keep Using Lovable Cloud (Recommended for simplicity)
+## Implementation Phases
 
-If you prefer the simpler Supabase-based architecture already built, you would:
-- Keep the current Lovable Cloud setup
-- Migrate your MERN data model concepts to Supabase tables (already done)
-- Use Edge Functions for Razorpay integration
-- Add TMDB API integration via Edge Functions
+### Phase 1: Core Setup
 
----
+**1.1 Install Dependencies**
+- Add `axios` for API calls
+- Add `@clerk/clerk-react` for authentication
+- Load Razorpay script dynamically
 
-## Technical Implementation Details (For Option A)
+**1.2 Create API Configuration (`src/lib/api.ts`)**
+- Configure axios with base URL pointing to `http://localhost:3000/api`
+- Add request interceptor to attach Clerk auth token
+- Add response interceptor for error handling
 
-### Phase 1: Authentication Migration
+**1.3 Create Clerk Provider (`src/providers/ClerkProvider.tsx`)**
+- Wrap app with ClerkProvider using your publishable key
+- Handle loading and error states
 
-Files to create/modify:
-- `src/lib/api.ts` - Axios instance with base URL and auth interceptor
-- `src/providers/AuthProvider.tsx` - Clerk provider wrapper
-- `src/main.tsx` - Wrap app with ClerkProvider
-- `src/pages/Auth.tsx` - Replace with Clerk SignIn/SignUp
-- `src/components/Header.tsx` - Use Clerk hooks for user state
-
-### Phase 2: API Integration
-
-Files to create/modify:
-- `src/hooks/useShows.ts` - React Query hook for fetching shows
-- `src/hooks/useMovieDetails.ts` - React Query hook for movie details
-- `src/hooks/useBookings.ts` - React Query hooks for booking operations
-- `src/pages/Events.tsx` - Fetch from MERN API
-- `src/pages/EventDetail.tsx` - Fetch movie/show from MERN API
-- `src/components/SeatSelector.tsx` - Fetch occupied seats from API
-
-### Phase 3: Payment Integration
-
-Files to create/modify:
-- `src/lib/razorpay.ts` - Razorpay checkout helper
-- `src/pages/Checkout.tsx` - Full Razorpay integration
-- `src/pages/MyBookings.tsx` - User's booking history
-
-### Phase 4: Features
-
-Files to create/modify:
-- `src/pages/Favorites.tsx` - User favorites page
-- `src/components/FavoriteButton.tsx` - Toggle favorite movies
+**1.4 Update Main Entry (`src/main.tsx`)**
+- Wrap App with ClerkProvider
 
 ---
 
-## Data Model Mapping
+### Phase 2: Authentication Migration
 
-| MERN Model | Current Supabase Table | Notes |
-|------------|----------------------|-------|
-| Movie | events | Map TMDB fields to event fields |
-| Show | events + seats | Shows are event instances with seat data |
-| Booking | bookings | Compatible structure |
-| User | profiles | Clerk user synced to profiles |
+**2.1 Replace Auth Page (`src/pages/Auth.tsx`)**
+- Replace Supabase auth with Clerk's `<SignIn />` and `<SignUp />` components
+- Style to match your dark theme
+
+**2.2 Update Header (`src/components/Header.tsx`)**
+- Replace `supabase.auth` with Clerk's `useUser()` and `useClerk()` hooks
+- Update sign-out logic to use `signOut()` from Clerk
+- Display user name/email from Clerk user object
 
 ---
 
-## Environment Variables Needed
+### Phase 3: Data Fetching Integration
 
-For the Lovable frontend to connect to your backend:
-```
-VITE_BASE_URL=https://your-deployed-backend.com/api
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_xxx
-VITE_RAZORPAY_KEY_ID=rzp_test_xxx
+**3.1 Create Custom Hooks**
+
+**`src/hooks/useShows.ts`**
+- Fetch movies from `/api/show/all`
+- Map TMDB movie data to your event card format
+- Return loading, error, and data states
+
+**`src/hooks/useMovieDetails.ts`**
+- Fetch single movie + showtimes from `/api/show/:movieId`
+- Return movie details, dateTime object with available shows
+
+**`src/hooks/useOccupiedSeats.ts`**
+- Fetch occupied seats for a specific showId
+- Used by SeatSelector component
+
+**`src/hooks/useBookings.ts`**
+- Create booking mutation
+- Fetch user bookings query
+- Uses Clerk auth token
+
+**3.2 Update Events Page (`src/pages/Events.tsx`)**
+- Replace static `events` data with `useShows()` hook
+- Add loading skeleton UI
+- Handle empty states
+
+**3.3 Update Event Detail Page (`src/pages/EventDetail.tsx`)**
+- Fetch movie details using `useMovieDetails(movieId)`
+- Display TMDB movie poster using image URL prefix
+- Show available dates and times from backend
+- Add date/time selection before seat selection
+
+**3.4 Update Seat Selector (`src/components/SeatSelector.tsx`)**
+- Accept `showId` prop to fetch occupied seats
+- Replace random generation with real occupied data from `/api/booking/seats/:showId`
+- Use `showPrice` from backend instead of hardcoded prices
+
+---
+
+### Phase 4: Booking & Payment Flow
+
+**4.1 Create Razorpay Helper (`src/lib/razorpay.ts`)**
+- Load Razorpay script dynamically
+- Helper function to open Razorpay checkout modal
+
+**4.2 Update Checkout Page (`src/pages/Checkout.tsx`)**
+- Remove Supabase edge function call
+- Call `/api/booking/create` with showId and selected seats
+- Receive Razorpay order from response
+- Open Razorpay checkout modal with order details
+- On payment success, call `/api/payment/verify-payment`
+- Show success/failure based on verification
+
+**4.3 Environment Variables**
+You'll need to add these to a `.env.local` file (NOT the auto-generated `.env`):
+```text
+VITE_API_BASE_URL=http://localhost:3000/api
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_cG9saXRlLW1vbmFyY2gtMzguY2xlcmsuYWNjb3VudHMuZGV2JA
+VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
 VITE_TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p/original
 ```
 
 ---
 
-## Recommended Next Steps
+### Phase 5: Additional Features
 
-1. **Deploy your MERN backend** to a cloud service (Render, Railway, Heroku)
-2. **Provide the deployed backend URL** so I can configure the frontend
-3. **Share your Clerk Publishable Key** for frontend authentication
-4. **Confirm which option** you want to proceed with (A or B)
+**5.1 Create My Bookings Page (`src/pages/MyBookings.tsx`)**
+- Protected route (redirects to auth if not signed in)
+- Fetch from `/api/user/bookings`
+- Display booking history with movie posters, dates, seats
 
-Would you like me to proceed with Option A (connecting to your MERN backend) or Option B (enhancing the current Lovable Cloud setup)?
+**5.2 Create Favorites Feature**
+- Add heart button that calls `/api/user/update-favorite`
+- Create Favorites page fetching `/api/user/favorites`
+
+**5.3 Update Routing (`src/App.tsx`)**
+- Add `/my-bookings` route
+- Add `/favorites` route
+- Protected route wrapper for authenticated pages
+
+---
+
+## Backend Changes You Need to Make
+
+### 1. CORS Configuration (Critical!)
+Update your `server.js` to allow requests from Lovable:
+
+```javascript
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'https://id-preview--95350e67-f0bf-48f0-90d1-522f7504e5de.lovable.app'
+  ],
+  credentials: true
+}));
+```
+
+### 2. Add Show Routes
+I noticed your `showRoutes.js` file seems incorrect (it has userRouter code). Make sure it exports the show router with these routes:
+
+```javascript
+import express from "express";
+import { getNowPlayingMovies, addShow, getShows, getShow } from "../controllers/showController.js";
+
+const showRouter = express.Router();
+
+showRouter.get('/now-playing', getNowPlayingMovies);
+showRouter.post('/add', addShow);
+showRouter.get('/all', getShows);
+showRouter.get('/:movieId', getShow);
+
+export default showRouter;
+```
+
+### 3. Ensure MongoDB is Running
+Your backend needs MongoDB running locally or via Atlas connection string in your `.env`.
+
+---
+
+## File Changes Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `package.json` | Modify | Add axios, @clerk/clerk-react |
+| `src/lib/api.ts` | Create | Axios configuration with auth interceptor |
+| `src/lib/razorpay.ts` | Create | Razorpay checkout helper |
+| `src/providers/ClerkProvider.tsx` | Create | Clerk authentication wrapper |
+| `src/main.tsx` | Modify | Wrap with ClerkProvider |
+| `src/pages/Auth.tsx` | Modify | Replace with Clerk components |
+| `src/components/Header.tsx` | Modify | Use Clerk hooks |
+| `src/hooks/useShows.ts` | Create | Fetch shows from API |
+| `src/hooks/useMovieDetails.ts` | Create | Fetch movie details |
+| `src/hooks/useOccupiedSeats.ts` | Create | Fetch seat availability |
+| `src/hooks/useBookings.ts` | Create | Booking mutations |
+| `src/pages/Events.tsx` | Modify | Use useShows hook |
+| `src/pages/EventDetail.tsx` | Modify | Use API data, add date/time picker |
+| `src/components/SeatSelector.tsx` | Modify | Fetch real occupied seats |
+| `src/pages/Checkout.tsx` | Modify | Full Razorpay integration |
+| `src/pages/MyBookings.tsx` | Create | User booking history |
+| `src/App.tsx` | Modify | Add new routes |
+
+---
+
+## Data Model Mapping
+
+Your MERN backend uses TMDB movie data. Here's how it maps to the frontend:
+
+| Backend Field | Frontend Display |
+|--------------|------------------|
+| `movie.title` | Event title |
+| `movie.poster_path` | Event image (with TMDB prefix) |
+| `movie.backdrop_path` | Hero image |
+| `movie.overview` | Event description |
+| `movie.vote_average` | Rating |
+| `movie.runtime` | Duration |
+| `movie.genres[].name` | Genre badge |
+| `show.showDateTime` | Date and time |
+| `show.showPrice` | Ticket price |
+| `show.occupiedSeats` | Reserved seats display |
+
+---
+
+## Testing Checklist
+
+After implementation, verify:
+
+1. Clerk sign-up/sign-in works
+2. Movies load on Events page from your backend
+3. Movie detail page shows correct showtimes
+4. Seat selector shows real occupied seats
+5. Booking creates order and opens Razorpay
+6. Payment verification updates booking status
+7. My Bookings shows user's booking history
+
+---
+
+## Important Notes
+
+- **Local Development**: This setup works for local development only. For production, deploy your backend and update `VITE_API_BASE_URL`.
+- **Supabase Remains**: The Supabase integration files remain but won't be used - the frontend will call your MERN backend instead.
+- **Razorpay Key**: You'll need to provide your Razorpay Key ID for the frontend checkout modal.
