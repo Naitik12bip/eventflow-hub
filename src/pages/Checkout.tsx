@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { formatPrice, formatDate } from '@/data/events';
+ import { supabase } from '@/integrations/supabase/client';
+ import { z } from 'zod';
 import {
   CreditCard,
   Lock,
@@ -17,6 +19,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
+ // Validation schema for checkout form
+ const checkoutSchema = z.object({
+   name: z
+     .string()
+     .trim()
+     .min(2, 'Name must be at least 2 characters')
+     .max(100, 'Name must be less than 100 characters')
+     .regex(/^[a-zA-Z\s\-']+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes'),
+   email: z
+     .string()
+     .trim()
+     .email('Please enter a valid email address')
+     .max(255, 'Email must be less than 255 characters'),
+   phone: z
+     .string()
+     .transform((val) => val.replace(/[\s\-]/g, ''))
+     .refine((val) => /^\+?[1-9]\d{9,14}$/.test(val), 'Please enter a valid phone number'),
+ });
+ 
+ type CheckoutFormData = z.infer<typeof checkoutSchema>;
+ 
 interface BookingData {
   event: {
     id: string;
@@ -30,6 +53,7 @@ interface BookingData {
   seats: Array<{
     id: string;
     price: number;
+     seatId?: string; // Database UUID for the seat
   }>;
   total: number;
 }
@@ -39,6 +63,7 @@ const Checkout = () => {
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -58,25 +83,82 @@ const Checkout = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePayment = async () => {
-    if (!formData.name || !formData.email || !formData.phone) {
-      toast.error('Please fill in all required fields');
+   const validateForm = (): boolean => {
+     try {
+       checkoutSchema.parse(formData);
+       setErrors({});
+       return true;
+     } catch (error) {
+       if (error instanceof z.ZodError) {
+         const newErrors: Record<string, string> = {};
+         error.errors.forEach((err) => {
+           if (err.path[0]) {
+             newErrors[err.path[0] as string] = err.message;
+           }
+         });
+         setErrors(newErrors);
+       }
+       return false;
+     }
+   };
+ 
+   const handlePayment = async () => {
+     // Client-side validation first
+     if (!validateForm()) {
+       toast.error('Please fix the form errors');
       return;
     }
 
     if (!bookingData) return;
 
+     // Check if user is authenticated
+     const { data: { session } } = await supabase.auth.getSession();
+     if (!session) {
+       toast.error('Please sign in to complete your booking');
+       navigate('/auth');
+       return;
+     }
+ 
     setIsProcessing(true);
 
-    // Simulate Razorpay integration
-    // In production, you would integrate with actual Razorpay SDK
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Simulate successful payment
-    setIsProcessing(false);
-    setIsSuccess(true);
-    localStorage.removeItem('pendingBooking');
-    toast.success('Payment successful! Your tickets have been booked.');
+     try {
+       // Get seat database IDs - handle both new format (with seatId) and legacy format
+       const seatIds = bookingData.seats.map(seat => seat.seatId || seat.id);
+ 
+       // Call server-side edge function for secure booking
+       const { data, error } = await supabase.functions.invoke('process-booking', {
+         body: {
+           name: formData.name.trim(),
+           email: formData.email.trim(),
+           phone: formData.phone,
+           eventId: bookingData.event.id,
+           seatIds: seatIds,
+         },
+       });
+ 
+       if (error) {
+         console.error('Booking error:', error);
+         toast.error(error.message || 'Failed to process booking');
+         setIsProcessing(false);
+         return;
+       }
+ 
+       if (data?.error) {
+         toast.error(data.error);
+         setIsProcessing(false);
+         return;
+       }
+ 
+       // Booking successful
+       setIsProcessing(false);
+       setIsSuccess(true);
+       localStorage.removeItem('pendingBooking');
+       toast.success('Payment successful! Your tickets have been booked.');
+     } catch (error) {
+       console.error('Payment error:', error);
+       toast.error('An error occurred during payment. Please try again.');
+       setIsProcessing(false);
+     }
   };
 
   if (!bookingData) {
@@ -194,8 +276,11 @@ const Checkout = () => {
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="Enter your full name"
-                    className="mt-1 h-12 bg-muted/50 border-border/50"
+                     className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.name ? 'border-destructive' : ''}`}
                   />
+                   {errors.name && (
+                     <p className="text-sm text-destructive mt-1">{errors.name}</p>
+                   )}
                 </div>
                 <div>
                   <Label htmlFor="email">Email Address *</Label>
@@ -206,8 +291,11 @@ const Checkout = () => {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="your@email.com"
-                    className="mt-1 h-12 bg-muted/50 border-border/50"
+                     className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.email ? 'border-destructive' : ''}`}
                   />
+                   {errors.email && (
+                     <p className="text-sm text-destructive mt-1">{errors.email}</p>
+                   )}
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number *</Label>
@@ -218,8 +306,11 @@ const Checkout = () => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="+91 98765 43210"
-                    className="mt-1 h-12 bg-muted/50 border-border/50"
+                     className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.phone ? 'border-destructive' : ''}`}
                   />
+                   {errors.phone && (
+                     <p className="text-sm text-destructive mt-1">{errors.phone}</p>
+                   )}
                 </div>
               </div>
             </div>
