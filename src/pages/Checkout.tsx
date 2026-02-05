@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { formatPrice, formatDate } from '@/data/events';
- import { supabase } from '@/integrations/supabase/client';
+ import { formatPrice, formatDate } from '@/data/events';
+ import { useUser } from '@clerk/clerk-react';
+ import { useCreateBooking, useVerifyPayment } from '@/hooks/useBookings';
+ import { loadRazorpayScript, openRazorpayCheckout, RazorpayResponse } from '@/lib/razorpay';
  import { z } from 'zod';
 import {
   CreditCard,
@@ -53,10 +55,11 @@ interface BookingData {
   seats: Array<{
     id: string;
     price: number;
-     seatId?: string; // Database UUID for the seat
+    seatId?: string; // Database UUID for the seat
   }>;
-  total: number;
-}
+ total: number;
+   showId?: string; // For MERN backend
+ }
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -64,6 +67,9 @@ const Checkout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
    const [errors, setErrors] = useState<Record<string, string>>({});
+   const { user, isLoaded } = useUser();
+   const createBooking = useCreateBooking();
+   const verifyPayment = useVerifyPayment();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -106,60 +112,83 @@ const Checkout = () => {
      // Client-side validation first
      if (!validateForm()) {
        toast.error('Please fix the form errors');
-      return;
-    }
-
-    if (!bookingData) return;
-
-     // Check if user is authenticated
-     const { data: { session } } = await supabase.auth.getSession();
-     if (!session) {
+       return;
+     }
+ 
+     if (!bookingData) return;
+ 
+     // Check if user is authenticated (Clerk)
+     if (!isLoaded || !user) {
        toast.error('Please sign in to complete your booking');
        navigate('/auth');
        return;
      }
  
-    setIsProcessing(true);
-
-     try {
-       // Get seat database IDs - handle both new format (with seatId) and legacy format
-       const seatIds = bookingData.seats.map(seat => seat.seatId || seat.id);
+     setIsProcessing(true);
  
-       // Call server-side edge function for secure booking
-       const { data, error } = await supabase.functions.invoke('process-booking', {
-         body: {
-           name: formData.name.trim(),
-           email: formData.email.trim(),
-           phone: formData.phone,
-           eventId: bookingData.event.id,
-           seatIds: seatIds,
-         },
+     try {
+       // Load Razorpay script
+       const scriptLoaded = await loadRazorpayScript();
+       if (!scriptLoaded) {
+         toast.error('Failed to load payment gateway. Please refresh and try again.');
+         setIsProcessing(false);
+         return;
+       }
+ 
+       // Get seat IDs
+       const seatIds = bookingData.seats.map(seat => seat.id);
+ 
+       // Create booking via MERN backend
+       const result = await createBooking.mutateAsync({
+         showId: bookingData.showId || bookingData.event.id,
+         seats: seatIds,
        });
  
-       if (error) {
-         console.error('Booking error:', error);
-         toast.error(error.message || 'Failed to process booking');
-         setIsProcessing(false);
-         return;
-       }
+       // Open Razorpay checkout modal
+       openRazorpayCheckout(
+         {
+           orderId: result.razorpayOrder.id,
+           amount: result.razorpayOrder.amount,
+           currency: result.razorpayOrder.currency,
+         },
+         {
+           name: formData.name,
+           email: formData.email,
+           phone: formData.phone,
+         },
+         bookingData.event.title,
+         async (response: RazorpayResponse) => {
+           // Verify payment
+           try {
+             await verifyPayment.mutateAsync({
+               razorpay_payment_id: response.razorpay_payment_id,
+               razorpay_order_id: response.razorpay_order_id,
+               razorpay_signature: response.razorpay_signature,
+               bookingId: result.booking._id,
+             });
  
-       if (data?.error) {
-         toast.error(data.error);
-         setIsProcessing(false);
-         return;
-       }
- 
-       // Booking successful
-       setIsProcessing(false);
-       setIsSuccess(true);
-       localStorage.removeItem('pendingBooking');
-       toast.success('Payment successful! Your tickets have been booked.');
+             setIsProcessing(false);
+             setIsSuccess(true);
+             localStorage.removeItem('pendingBooking');
+             toast.success('Payment successful! Your tickets have been booked.');
+           } catch (verifyError) {
+             console.error('Payment verification error:', verifyError);
+             toast.error('Payment verification failed. Please contact support.');
+             setIsProcessing(false);
+           }
+         },
+         () => {
+           // On dismiss
+           setIsProcessing(false);
+           toast.info('Payment cancelled');
+         }
+       );
      } catch (error) {
        console.error('Payment error:', error);
        toast.error('An error occurred during payment. Please try again.');
        setIsProcessing(false);
      }
-  };
+   };
 
   if (!bookingData) {
     return (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { formatPrice } from '@/data/events';
 
@@ -11,30 +11,34 @@ interface Seat {
   status: 'available' | 'selected' | 'reserved';
 }
 
-interface SeatSelectorProps {
-  onSeatsChange: (seats: Seat[]) => void;
-}
-
-const generateSeats = (): Seat[] => {
+ interface SeatSelectorProps {
+   onSeatsChange: (seats: Seat[]) => void;
+   occupiedSeats?: string[];
+   showPrice?: number;
+ }
+ 
+ const generateSeats = (occupiedSeats: string[] = [], showPrice?: number): Seat[] => {
   const seats: Seat[] = [];
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const seatsPerRow = 12;
 
   rows.forEach((row, rowIndex) => {
     for (let i = 1; i <= seatsPerRow; i++) {
-      let type: Seat['type'] = 'standard';
-      let price = 500;
-      
-      if (rowIndex < 2) {
-        type = 'vip';
-        price = 2000;
-      } else if (rowIndex < 4) {
-        type = 'premium';
-        price = 1000;
-      }
-
-      // Randomly reserve some seats
-      const isReserved = Math.random() < 0.3;
+       let type: Seat['type'] = 'standard';
+       const basePrice = showPrice || 500;
+       let price = basePrice;
+       
+       if (rowIndex < 2) {
+         type = 'vip';
+         price = basePrice * 4;
+       } else if (rowIndex < 4) {
+         type = 'premium';
+         price = basePrice * 2;
+       }
+ 
+       // Check if seat is occupied from backend data
+       const seatId = `${row}${i}`;
+       const isReserved = occupiedSeats.includes(seatId);
 
       seats.push({
         id: `${row}${i}`,
@@ -50,8 +54,14 @@ const generateSeats = (): Seat[] => {
   return seats;
 };
 
-export const SeatSelector = ({ onSeatsChange }: SeatSelectorProps) => {
-  const [seats, setSeats] = useState<Seat[]>(generateSeats);
+ export const SeatSelector = ({ onSeatsChange, occupiedSeats = [], showPrice }: SeatSelectorProps) => {
+   const [seats, setSeats] = useState<Seat[]>(() => generateSeats(occupiedSeats, showPrice));
+   // Update seats when occupiedSeats or showPrice changes
+   useEffect(() => {
+     setSeats(generateSeats(occupiedSeats, showPrice));
+     setSelectedSeats([]);
+   }, [occupiedSeats, showPrice]);
+ 
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
 
   const handleSeatClick = (seat: Seat) => {
@@ -129,18 +139,18 @@ export const SeatSelector = ({ onSeatsChange }: SeatSelectorProps) => {
 
       {/* Legend */}
       <div className="flex flex-wrap justify-center gap-6 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-t-md bg-muted" />
-          <span className="text-muted-foreground">Standard (₹500)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-t-md bg-secondary/50" />
-          <span className="text-muted-foreground">Premium (₹1000)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-t-md seat-vip" />
-          <span className="text-muted-foreground">VIP (₹2000)</span>
-        </div>
+         <div className="flex items-center gap-2">
+           <div className="w-6 h-6 rounded-t-md bg-muted" />
+           <span className="text-muted-foreground">Standard (₹{showPrice || 500})</span>
+         </div>
+         <div className="flex items-center gap-2">
+           <div className="w-6 h-6 rounded-t-md bg-secondary/50" />
+           <span className="text-muted-foreground">Premium (₹{(showPrice || 500) * 2})</span>
+         </div>
+         <div className="flex items-center gap-2">
+           <div className="w-6 h-6 rounded-t-md seat-vip" />
+           <span className="text-muted-foreground">VIP (₹{(showPrice || 500) * 4})</span>
+         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-t-md seat-selected" />
           <span className="text-muted-foreground">Selected</span>

@@ -1,21 +1,23 @@
-import { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/Layout';
-import { EventCard } from '@/components/EventCard';
-import { CategoryFilter } from '@/components/CategoryFilter';
-import { events, getEventsByCategory, EventCategory } from '@/data/events';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-const Events = () => {
+ import { useState, useMemo } from 'react';
+ import { useSearchParams } from 'react-router-dom';
+ import { Layout } from '@/components/Layout';
+ import { EventCard } from '@/components/EventCard';
+ import { CategoryFilter } from '@/components/CategoryFilter';
+ import { events as staticEvents, getEventsByCategory, EventCategory } from '@/data/events';
+ import { useShows } from '@/hooks/useShows';
+ import { Search, SlidersHorizontal, X } from 'lucide-react';
+ import { Input } from '@/components/ui/input';
+ import { Button } from '@/components/ui/button';
+ import { Skeleton } from '@/components/ui/skeleton';
+ import {
+   Select,
+   SelectContent,
+   SelectItem,
+   SelectTrigger,
+   SelectValue,
+ } from '@/components/ui/select';
+ 
+ const Events = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCategory = searchParams.get('category') || 'all';
   
@@ -23,7 +25,10 @@ const Events = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [priceRange, setPriceRange] = useState('all');
-  const [showFilters, setShowFilters] = useState(false);
+   const [showFilters, setShowFilters] = useState(false);
+   
+   // Fetch shows from backend API
+   const { data: apiShows, isLoading, error } = useShows();
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
@@ -35,8 +40,15 @@ const Events = () => {
     setSearchParams(searchParams);
   };
 
-  const filteredEvents = useMemo(() => {
-    let result = getEventsByCategory(selectedCategory as EventCategory | 'all');
+   const filteredEvents = useMemo(() => {
+     // Use API shows if available, fallback to static events
+     const allEvents = apiShows && apiShows.length > 0 
+       ? [...apiShows, ...staticEvents.filter(e => e.category !== 'movies')]
+       : getEventsByCategory(selectedCategory as EventCategory | 'all');
+     
+     let result = selectedCategory === 'all' 
+       ? allEvents 
+       : allEvents.filter(e => e.category === selectedCategory);
 
     // Search filter
     if (searchQuery) {
@@ -73,7 +85,7 @@ const Events = () => {
     }
 
     return result;
-  }, [selectedCategory, searchQuery, sortBy, priceRange]);
+   }, [selectedCategory, searchQuery, sortBy, priceRange, apiShows]);
 
   return (
     <Layout>
@@ -189,13 +201,31 @@ const Events = () => {
           />
         </div>
 
-        {/* Results Count */}
-        <p className="text-muted-foreground mb-6">
-          {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} found
-        </p>
+         {/* Results Count */}
+         {isLoading ? (
+           <Skeleton className="h-6 w-32 mb-6" />
+         ) : (
+           <p className="text-muted-foreground mb-6">
+             {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} found
+             {error && <span className="text-amber-500 ml-2">(Using cached data)</span>}
+           </p>
+         )}
 
-        {/* Events Grid */}
-        {filteredEvents.length > 0 ? (
+         {/* Events Grid */}
+         {isLoading ? (
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             {[...Array(6)].map((_, i) => (
+               <div key={i} className="glass-strong rounded-2xl overflow-hidden">
+                 <Skeleton className="aspect-[3/4] w-full" />
+                 <div className="p-4 space-y-3">
+                   <Skeleton className="h-6 w-3/4" />
+                   <Skeleton className="h-4 w-1/2" />
+                   <Skeleton className="h-4 w-1/3" />
+                 </div>
+               </div>
+             ))}
+           </div>
+         ) : filteredEvents.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEvents.map((event, index) => (
               <div
