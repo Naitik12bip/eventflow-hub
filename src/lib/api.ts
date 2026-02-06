@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 
 // Backend base URL
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
 
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 5000);
 
@@ -13,7 +13,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
-  timeout: API_TIMEOUT_MS, // 10 second timeout - fail fast if backend unreachable
+  timeout: 10000, // 10 second timeout - fail fast if backend unreachable
 });
 
 // Clerk token handling
