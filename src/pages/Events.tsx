@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useShows } from '@/hooks/useShows';
 import { EventCategory } from '@/data/events';
 import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const categories: { label: string; value: EventCategory | 'all' }[] = [
   { label: 'All Events', value: 'all' },
@@ -14,13 +15,16 @@ const categories: { label: string; value: EventCategory | 'all' }[] = [
 ];
 
 const Events = () => {
-  const { data: events = [], isLoading, isError } = useShows();
+  const { data: events = [], isLoading, isError, isFetched } = useShows();
   const [activeCategory, setActiveCategory] = useState<'all' | EventCategory>('all');
 
   const filteredEvents =
     activeCategory === 'all'
       ? events
       : events.filter(event => event.category === activeCategory);
+
+  // Check if we're showing demo data (events have mock IDs starting with 'evt-')
+  const isShowingDemoData = isFetched && events.length > 0 && events[0]?.id?.startsWith('evt-');
 
   if (isLoading) {
     return (
@@ -30,16 +34,31 @@ const Events = () => {
     );
   }
 
-  if (isError) {
+  if (isError && events.length === 0) {
     return (
-      <div className="text-center text-red-500 mt-20">
-        Failed to load events. Please try again.
+      <div className="container mx-auto px-4 py-8">
+        <Alert variant="destructive">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Unable to connect to server. Please check your backend connection.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Demo data banner */}
+      {isShowingDemoData && (
+        <Alert className="mb-6">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Showing demo events. Connect your backend to see live data.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Heading */}
       <h1 className="text-3xl font-bold mb-2">All Events</h1>
       <p className="text-muted-foreground mb-6">

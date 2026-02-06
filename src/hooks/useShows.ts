@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api, { getTMDBImageUrl } from '@/lib/api';
-import { Event, EventCategory } from '@/data/events';
+import { Event, EventCategory, events as mockEvents } from '@/data/events';
 
 // Backend show type
 export interface BackendShow {
@@ -57,15 +57,22 @@ interface ShowsResponse {
   shows: BackendShow[];
 }
 
-// Hook
+// Hook with fallback to mock data
 export const useShows = () => {
   return useQuery({
     queryKey: ['shows'],
     queryFn: async () => {
-      const res = await api.get<ShowsResponse>('/show/all');
-      if (!res.data.success) throw new Error('Failed to fetch shows');
-      return res.data.shows.map(mapShowToEvent);
+      try {
+        const res = await api.get<ShowsResponse>('/show/all');
+        if (!res.data.success) throw new Error('Failed to fetch shows');
+        return res.data.shows.map(mapShowToEvent);
+      } catch (error) {
+        console.warn('Backend unreachable, using demo data:', error);
+        // Return mock events as fallback
+        return mockEvents;
+      }
     },
     staleTime: 5 * 60 * 1000,
+    retry: 1, // Only retry once before using fallback
   });
 };
