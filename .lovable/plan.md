@@ -1,167 +1,192 @@
 
-# Frontend Integration Plan: Connect to Your MERN Backend
 
-## Summary
+# Fix Frontend Loading Issue & Backend Alignment
 
-This plan modifies your Lovable frontend to work with your local MERN backend running at `http://localhost:3000`. I'll replace Supabase authentication with Clerk, update all data fetching to call your Express APIs, and integrate the full Razorpay payment flow.
+## Problem Identified
 
----
+The Events page is stuck loading indefinitely because:
 
-## Your Backend API Endpoints (Reference)
-
-Based on your repository, here are the endpoints the frontend will call:
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/show/all` | GET | Get all shows (movies with upcoming showtimes) |
-| `/api/show/:movieId` | GET | Get movie details + available showtimes |
-| `/api/booking/seats/:showId` | GET | Get occupied seats for a show |
-| `/api/booking/create` | POST | Create booking (requires auth) |
-| `/api/payment/create-order` | POST | Create Razorpay order |
-| `/api/payment/verify-payment` | POST | Verify payment signature |
-| `/api/user/bookings` | GET | Get user's bookings (requires auth) |
-| `/api/user/update-favorite` | POST | Toggle favorite movie |
-| `/api/user/favorites` | GET | Get user's favorites |
+1. **API Response Structure Mismatch**: Your backend returns `{ success: true, shows: [...] }` but the frontend expects the response to be a direct array `BackendShow[]`
+2. **Backend Route File Error**: Your `showRoutes.js` file incorrectly contains `userRouter` code instead of show routes
+3. **API Path Issue**: Frontend calls `/show/all` but there's a potential route registration issue on backend
 
 ---
 
-## Implementation Phases
+## Issue 1: Backend `showRoutes.js` is Wrong (CRITICAL)
 
-### Phase 1: Core Setup
+Your current `server/routes/showRoutes.js` contains:
+```javascript
+// WRONG - This is user routes code!
+import { getFavorites, getUserBookings, updateFavorite } from "../controllers/userController.js";
+const userRouter = express.Router();
+userRouter.get('/bookings', getUserBookings)
+...
+export default userRouter;
+```
 
-**1.1 Install Dependencies**
-- Add `axios` for API calls
-- Add `@clerk/clerk-react` for authentication
-- Load Razorpay script dynamically
+**You need to fix this file** to:
+```javascript
+import express from "express";
+import { getNowPlayingMovies, addShow, getShows, getShow } from "../controllers/showController.js";
 
-**1.2 Create API Configuration (`src/lib/api.ts`)**
-- Configure axios with base URL pointing to `http://localhost:3000/api`
-- Add request interceptor to attach Clerk auth token
-- Add response interceptor for error handling
+const showRouter = express.Router();
 
-**1.3 Create Clerk Provider (`src/providers/ClerkProvider.tsx`)**
-- Wrap app with ClerkProvider using your publishable key
-- Handle loading and error states
+showRouter.get('/now-playing', getNowPlayingMovies);
+showRouter.post('/add', addShow);
+showRouter.get('/all', getShows);
+showRouter.get('/:movieId', getShow);
 
-**1.4 Update Main Entry (`src/main.tsx`)**
-- Wrap App with ClerkProvider
-
----
-
-### Phase 2: Authentication Migration
-
-**2.1 Replace Auth Page (`src/pages/Auth.tsx`)**
-- Replace Supabase auth with Clerk's `<SignIn />` and `<SignUp />` components
-- Style to match your dark theme
-
-**2.2 Update Header (`src/components/Header.tsx`)**
-- Replace `supabase.auth` with Clerk's `useUser()` and `useClerk()` hooks
-- Update sign-out logic to use `signOut()` from Clerk
-- Display user name/email from Clerk user object
-
----
-
-### Phase 3: Data Fetching Integration
-
-**3.1 Create Custom Hooks**
-
-**`src/hooks/useShows.ts`**
-- Fetch movies from `/api/show/all`
-- Map TMDB movie data to your event card format
-- Return loading, error, and data states
-
-**`src/hooks/useMovieDetails.ts`**
-- Fetch single movie + showtimes from `/api/show/:movieId`
-- Return movie details, dateTime object with available shows
-
-**`src/hooks/useOccupiedSeats.ts`**
-- Fetch occupied seats for a specific showId
-- Used by SeatSelector component
-
-**`src/hooks/useBookings.ts`**
-- Create booking mutation
-- Fetch user bookings query
-- Uses Clerk auth token
-
-**3.2 Update Events Page (`src/pages/Events.tsx`)**
-- Replace static `events` data with `useShows()` hook
-- Add loading skeleton UI
-- Handle empty states
-
-**3.3 Update Event Detail Page (`src/pages/EventDetail.tsx`)**
-- Fetch movie details using `useMovieDetails(movieId)`
-- Display TMDB movie poster using image URL prefix
-- Show available dates and times from backend
-- Add date/time selection before seat selection
-
-**3.4 Update Seat Selector (`src/components/SeatSelector.tsx`)**
-- Accept `showId` prop to fetch occupied seats
-- Replace random generation with real occupied data from `/api/booking/seats/:showId`
-- Use `showPrice` from backend instead of hardcoded prices
-
----
-
-### Phase 4: Booking & Payment Flow
-
-**4.1 Create Razorpay Helper (`src/lib/razorpay.ts`)**
-- Load Razorpay script dynamically
-- Helper function to open Razorpay checkout modal
-
-**4.2 Update Checkout Page (`src/pages/Checkout.tsx`)**
-- Remove Supabase edge function call
-- Call `/api/booking/create` with showId and selected seats
-- Receive Razorpay order from response
-- Open Razorpay checkout modal with order details
-- On payment success, call `/api/payment/verify-payment`
-- Show success/failure based on verification
-
-**4.3 Environment Variables**
-You'll need to add these to a `.env.local` file (NOT the auto-generated `.env`):
-```text
-VITE_API_BASE_URL=http://localhost:3000/api
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_cG9saXRlLW1vbmFyY2gtMzguY2xlcmsuYWNjb3VudHMuZGV2JA
-VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
-VITE_TMDB_IMAGE_BASE_URL=https://image.tmdb.org/t/p/original
+export default showRouter;
 ```
 
 ---
 
-### Phase 5: Additional Features
+## Issue 2: Frontend API Response Handling
 
-**5.1 Create My Bookings Page (`src/pages/MyBookings.tsx`)**
-- Protected route (redirects to auth if not signed in)
-- Fetch from `/api/user/bookings`
-- Display booking history with movie posters, dates, seats
+Your backend `getShows` controller returns:
+```javascript
+res.json({ success: true, shows: Array.from(uniqueShows) })
+```
 
-**5.2 Create Favorites Feature**
-- Add heart button that calls `/api/user/update-favorite`
-- Create Favorites page fetching `/api/user/favorites`
+But the frontend `useShows.ts` expects a direct array:
+```typescript
+const res = await api.get<BackendShow[]>('/show/all');
+return res.data.map(mapShowToEvent);  // This fails because res.data = { success, shows }
+```
 
-**5.3 Update Routing (`src/App.tsx`)**
-- Add `/my-bookings` route
-- Add `/favorites` route
-- Protected route wrapper for authenticated pages
+**Frontend Fix**: Update `useShows.ts` to handle the wrapped response:
+```typescript
+interface ShowsResponse {
+  success: boolean;
+  shows: BackendShow[];
+}
+
+const res = await api.get<ShowsResponse>('/show/all');
+if (!res.data.success) throw new Error('Failed to fetch shows');
+return res.data.shows.map(mapShowToEvent);
+```
 
 ---
 
-## Backend Changes You Need to Make
+## Issue 3: Backend Response Data Structure
 
-### 1. CORS Configuration (Critical!)
-Update your `server.js` to allow requests from Lovable:
+Your `getShows` controller returns movies (from the populate), not the full show objects with movie data embedded. Looking at your code:
 
 ```javascript
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:8080',
-    'https://id-preview--95350e67-f0bf-48f0-90d1-522f7504e5de.lovable.app'
-  ],
-  credentials: true
-}));
+const uniqueShows = new Set(shows.map(show => show.movie))
+res.json({success: true, shows: Array.from(uniqueShows)})
 ```
 
-### 2. Add Show Routes
-I noticed your `showRoutes.js` file seems incorrect (it has userRouter code). Make sure it exports the show router with these routes:
+This returns just the **Movie** objects, not **Show** objects with movie data. The frontend expects:
+```typescript
+{
+  _id: string;         // show ID
+  showDateTime: string;
+  showPrice: number;
+  occupiedSeats: string[];
+  movie: { ... }       // nested movie object
+}
+```
+
+But backend sends just the Movie object directly.
+
+**Backend Fix Required** - Update `showController.js`:
+```javascript
+export const getShows = async (req, res) => {
+  try {
+    const shows = await Show.find({ showDateTime: { $gte: new Date() } })
+      .populate('movie')
+      .sort({ showDateTime: 1 });
+
+    // Group shows by movie to avoid duplicates but keep show data
+    const movieShowsMap = new Map();
+    shows.forEach(show => {
+      const movieId = show.movie._id.toString();
+      if (!movieShowsMap.has(movieId)) {
+        movieShowsMap.set(movieId, {
+          _id: show._id,
+          movieId: show.movie._id,
+          showDateTime: show.showDateTime,
+          showPrice: show.showPrice,
+          occupiedSeats: show.occupiedSeats,
+          movie: show.movie
+        });
+      }
+    });
+
+    res.json({ success: true, shows: Array.from(movieShowsMap.values()) });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+```
+
+---
+
+## Issue 4: Movie Details API Response
+
+Your `getShow` (single movie) returns:
+```javascript
+res.json({ success: true, movie, dateTime })
+```
+
+But frontend `useMovieDetails.ts` expects:
+```typescript
+{ movie: {...}, shows: [...] }  // Not dateTime!
+```
+
+**Backend Fix Required** - Update `getShow` in `showController.js`:
+```javascript
+export const getShow = async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    const shows = await Show.find({ movie: movieId, showDateTime: { $gte: new Date() } });
+    const movie = await Movie.findById(movieId);
+
+    // Return shows array instead of dateTime object
+    const formattedShows = shows.map(show => ({
+      _id: show._id,
+      movieId: show.movie,
+      showDateTime: show.showDateTime,
+      showPrice: show.showPrice,
+      occupiedSeats: show.occupiedSeats
+    }));
+
+    res.json({ success: true, movie, shows: formattedShows });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+```
+
+---
+
+## Summary of Required Changes
+
+### Backend Changes (Your MERN repo)
+
+| File | Change |
+|------|--------|
+| `routes/showRoutes.js` | **Replace entire file** - currently has wrong user routes code |
+| `controllers/showController.js` | Update `getShows` to return show objects with movie data, not just movies |
+| `controllers/showController.js` | Update `getShow` to return `shows` array instead of `dateTime` object |
+
+### Frontend Changes (This Lovable project)
+
+| File | Change |
+|------|--------|
+| `src/hooks/useShows.ts` | Handle wrapped API response `{ success, shows }` |
+| `src/hooks/useMovieDetails.ts` | Handle wrapped API response `{ success, movie, shows }` |
+
+---
+
+## Complete Backend Fix Instructions
+
+### Step 1: Fix `showRoutes.js`
+
+Replace the entire contents of `server/routes/showRoutes.js` with:
 
 ```javascript
 import express from "express";
@@ -177,70 +202,98 @@ showRouter.get('/:movieId', getShow);
 export default showRouter;
 ```
 
-### 3. Ensure MongoDB is Running
-Your backend needs MongoDB running locally or via Atlas connection string in your `.env`.
+### Step 2: Update `getShows` in `showController.js`
+
+```javascript
+// API to get all shows from the database
+export const getShows = async (req, res) => {
+  try {
+    const shows = await Show.find({ showDateTime: { $gte: new Date() } })
+      .populate('movie')
+      .sort({ showDateTime: 1 });
+
+    // Group shows by movie, keeping show data
+    const movieShowsMap = new Map();
+    shows.forEach(show => {
+      if (!show.movie) return; // Skip if no movie
+      const movieId = show.movie._id.toString();
+      if (!movieShowsMap.has(movieId)) {
+        movieShowsMap.set(movieId, {
+          _id: show._id,
+          movieId: show.movie._id,
+          showDateTime: show.showDateTime,
+          showPrice: show.showPrice,
+          occupiedSeats: show.occupiedSeats || [],
+          movie: {
+            id: show.movie._id,
+            title: show.movie.title,
+            overview: show.movie.overview,
+            poster_path: show.movie.poster_path,
+            vote_average: show.movie.vote_average,
+            runtime: show.movie.runtime,
+            genres: show.movie.genres,
+            release_date: show.movie.release_date
+          }
+        });
+      }
+    });
+
+    res.json({ success: true, shows: Array.from(movieShowsMap.values()) });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+```
+
+### Step 3: Update `getShow` in `showController.js`
+
+```javascript
+// API to get a single movie with its shows
+export const getShow = async (req, res) => {
+  try {
+    const { movieId } = req.params;
+    const shows = await Show.find({ movie: movieId, showDateTime: { $gte: new Date() } });
+    const movie = await Movie.findById(movieId);
+
+    if (!movie) {
+      return res.json({ success: false, message: 'Movie not found' });
+    }
+
+    const formattedShows = shows.map(show => ({
+      _id: show._id,
+      movieId: show.movie,
+      showDateTime: show.showDateTime,
+      showPrice: show.showPrice,
+      occupiedSeats: show.occupiedSeats || []
+    }));
+
+    res.json({ success: true, movie, shows: formattedShows });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+```
 
 ---
 
-## File Changes Summary
+## Frontend Changes I'll Make
 
-| File | Action | Description |
-|------|--------|-------------|
-| `package.json` | Modify | Add axios, @clerk/clerk-react |
-| `src/lib/api.ts` | Create | Axios configuration with auth interceptor |
-| `src/lib/razorpay.ts` | Create | Razorpay checkout helper |
-| `src/providers/ClerkProvider.tsx` | Create | Clerk authentication wrapper |
-| `src/main.tsx` | Modify | Wrap with ClerkProvider |
-| `src/pages/Auth.tsx` | Modify | Replace with Clerk components |
-| `src/components/Header.tsx` | Modify | Use Clerk hooks |
-| `src/hooks/useShows.ts` | Create | Fetch shows from API |
-| `src/hooks/useMovieDetails.ts` | Create | Fetch movie details |
-| `src/hooks/useOccupiedSeats.ts` | Create | Fetch seat availability |
-| `src/hooks/useBookings.ts` | Create | Booking mutations |
-| `src/pages/Events.tsx` | Modify | Use useShows hook |
-| `src/pages/EventDetail.tsx` | Modify | Use API data, add date/time picker |
-| `src/components/SeatSelector.tsx` | Modify | Fetch real occupied seats |
-| `src/pages/Checkout.tsx` | Modify | Full Razorpay integration |
-| `src/pages/MyBookings.tsx` | Create | User booking history |
-| `src/App.tsx` | Modify | Add new routes |
+1. Update `src/hooks/useShows.ts` to:
+   - Handle `{ success, shows }` response wrapper
+   - Add error handling for failed responses
+
+2. Update `src/hooks/useMovieDetails.ts` to:
+   - Handle `{ success, movie, shows }` response wrapper
+   - Add error handling
 
 ---
 
-## Data Model Mapping
+## Testing After Fixes
 
-Your MERN backend uses TMDB movie data. Here's how it maps to the frontend:
+1. Start your MongoDB
+2. Start your MERN backend: `npm run dev` (should be on port 3000)
+3. Check CORS is configured for the Lovable preview URL
+4. The Events page should load movies from your database
 
-| Backend Field | Frontend Display |
-|--------------|------------------|
-| `movie.title` | Event title |
-| `movie.poster_path` | Event image (with TMDB prefix) |
-| `movie.backdrop_path` | Hero image |
-| `movie.overview` | Event description |
-| `movie.vote_average` | Rating |
-| `movie.runtime` | Duration |
-| `movie.genres[].name` | Genre badge |
-| `show.showDateTime` | Date and time |
-| `show.showPrice` | Ticket price |
-| `show.occupiedSeats` | Reserved seats display |
-
----
-
-## Testing Checklist
-
-After implementation, verify:
-
-1. Clerk sign-up/sign-in works
-2. Movies load on Events page from your backend
-3. Movie detail page shows correct showtimes
-4. Seat selector shows real occupied seats
-5. Booking creates order and opens Razorpay
-6. Payment verification updates booking status
-7. My Bookings shows user's booking history
-
----
-
-## Important Notes
-
-- **Local Development**: This setup works for local development only. For production, deploy your backend and update `VITE_API_BASE_URL`.
-- **Supabase Remains**: The Supabase integration files remain but won't be used - the frontend will call your MERN backend instead.
-- **Razorpay Key**: You'll need to provide your Razorpay Key ID for the frontend checkout modal.
