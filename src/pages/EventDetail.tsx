@@ -151,7 +151,6 @@ const EventDetail = () => {
       text: event.description,
       url: window.location.href,
   };
-     };
 
     try {
       if (navigator.share) {
@@ -170,7 +169,7 @@ const EventDetail = () => {
       console.error('Share failed:', error);
       toast.error('Unable to share the event right now.');
     }
-};
+  };
 
   const totalAmount = selectedSeats.reduce((acc, s) => acc + s.price, 0);
 
