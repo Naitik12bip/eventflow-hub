@@ -7,7 +7,7 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { events, featuredEvents, getEventsByCategory, categories } from '@/data/events';
 import { ArrowRight, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-type CategoryId = (typeof categories)[number]['id'];
+type CategoryId = (typeof categories)[number]['id'] | 'all';
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
   const filteredEvents = getEventsByCategory(selectedCategory);
@@ -56,7 +56,7 @@ const Index = () => {
           </div>
           <CategoryFilter
             selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
+            onCategoryChange={(category) => setSelectedCategory(category as CategoryId)}
           />
         </div>
       </section>
@@ -125,7 +125,7 @@ const Index = () => {
                   {category.label}
                 </h3>
                 <p className="text-muted-foreground text-sm mt-1">
-                  {events.filter((e) => e.category === category.id).length} events
+                  {events?.filter((e) => e.category === category.id).length} events
                 </p>
               </Link>
             ))}

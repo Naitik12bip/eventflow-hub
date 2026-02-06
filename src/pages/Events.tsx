@@ -14,12 +14,17 @@ const categories: { label: string; value: EventCategory | 'all' }[] = [
   { label: 'Comedy', value: 'comedy' },
 ];
 
+interface ShowsResponse {
+  events: any[]; // Replace 'any' with your actual Event type if possible
+  isFallbackData: boolean;
+}
+
 const Events = () => {
   const { data, isLoading } = useShows();
   const [activeCategory, setActiveCategory] = useState<'all' | EventCategory>('all');
 
-  const events = data?.events ?? [];
-  const isShowingDemoData = data?.isFallbackData ?? false;
+  const events = (data as any)?.events ?? [];
+  const isShowingDemoData = (data as any)?.isFallbackData ?? false;
 
   const filteredEvents =
     activeCategory === 'all'
@@ -57,11 +62,10 @@ const Events = () => {
           <button
             key={cat.value}
             onClick={() => setActiveCategory(cat.value)}
-            className={`px-4 py-2 rounded-full text-sm transition ${
-              activeCategory === cat.value
+            className={`px-4 py-2 rounded-full text-sm transition ${activeCategory === cat.value
                 ? 'bg-primary text-white'
                 : 'bg-muted hover:bg-muted/80'
-            }`}
+              }`}
           >
             {cat.label}
           </button>
@@ -101,10 +105,8 @@ const Events = () => {
                 </p>
 
                 <div className="flex items-center justify-between mt-3 text-sm">
-                  <span>₹{event.price.min}</span>
-                  <span className="text-muted-foreground">
-                    ⭐ {event.rating?.toFixed(1)}
-                  </span>
+                  <span>₹{event.price?.min ?? 'N/A'}</span>
+                  <span>⭐ {event.rating ? event.rating.toFixed(1) : 'N/A'}</span>
                 </div>
               </div>
             </Link>

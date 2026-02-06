@@ -4,9 +4,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useShows } from '@/hooks/useShows';
 
 const CommunityEvents = () => {
-  const { data: events = [], isLoading, isError } = useShows();
-
-  const freeEvents = events.filter((event) => event.price.min === 0);
+  const { data, isLoading, isError } = useShows();
+  const events = (data as any[]) || [];
+  const freeEvents = events.filter((event) => event.price?.min === 0);
 
   if (isLoading) {
     return (
@@ -67,7 +67,9 @@ const CommunityEvents = () => {
                 <p className="text-sm text-muted-foreground mt-1">{event.genre}</p>
                 <div className="flex items-center justify-between mt-3 text-sm">
                   <span className="font-medium text-green-600">Free</span>
-                  <span className="text-muted-foreground">⭐ {event.rating?.toFixed(1)}</span>
+                  <span className="text-muted-foreground">
+                    ⭐ {event.rating !== undefined ? event.rating.toFixed(1) : 'N/A'}
+                  </span>
                 </div>
               </div>
             </Link>
