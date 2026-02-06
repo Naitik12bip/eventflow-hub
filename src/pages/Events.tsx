@@ -15,16 +15,16 @@ const categories: { label: string; value: EventCategory | 'all' }[] = [
 ];
 
 const Events = () => {
-  const { data: events = [], isLoading, isError, isFetched } = useShows();
+  const { data, isLoading } = useShows();
   const [activeCategory, setActiveCategory] = useState<'all' | EventCategory>('all');
+
+  const events = data?.events ?? [];
+  const isShowingDemoData = data?.isFallbackData ?? false;
 
   const filteredEvents =
     activeCategory === 'all'
       ? events
       : events.filter(event => event.category === activeCategory);
-
-  // Check if we're showing demo data (events have mock IDs starting with 'evt-')
-  const isShowingDemoData = isFetched && events.length > 0 && events[0]?.id?.startsWith('evt-');
 
   if (isLoading) {
     return (
@@ -34,27 +34,13 @@ const Events = () => {
     );
   }
 
-  if (isError && events.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Alert variant="destructive">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Unable to connect to server. Please check your backend connection.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Demo data banner */}
       {isShowingDemoData && (
-        <Alert className="mb-6">
+        <Alert className="mb-6" variant="destructive">
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Showing demo events. Connect your backend to see live data.
+            Unable to connect to server. Showing demo events so you can still explore the UI.
           </AlertDescription>
         </Alert>
       )}

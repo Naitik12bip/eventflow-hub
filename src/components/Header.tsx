@@ -31,6 +31,7 @@ export const Header = () => {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/events', label: 'Events' },
+    { href: '/community-events', label: 'Community' },
     { href: '/events?category=movies', label: 'Movies' },
     { href: '/events?category=concerts', label: 'Concerts' },
     { href: '/events?category=sports', label: 'Sports' },
