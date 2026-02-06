@@ -65,16 +65,25 @@ interface ShowsResponse {
 
 // Live - data hook 
 export const useShows = () => {
-  return useQuery<ShowsQueryResult>({
+  return useQuery<ShowsQueryResult>({ // Expecting { events: Event[], isFallbackData: boolean }
     queryKey: ['shows'],
     queryFn: async () => {
       const res = await api.get<ShowsResponse>('/show/all');
+      
       if (!res.data.success) {
         throw new Error('Failed to fetch shows');
       }
-      return res.data.shows.map(mapShowToEvent);
+
+      // 1. Map the data as usual
+      const mappedEvents = res.data.shows.map(mapShowToEvent);
+
+      // 2. Return the object that matches ShowsQueryResult
+      return {
+        events: mappedEvents,
+        isFallbackData: false // Since this came from the API, it's not fallback data
+      };
     },
-  staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 };
