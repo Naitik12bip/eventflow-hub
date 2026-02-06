@@ -26,7 +26,7 @@
      return { valid: false, error: 'Name must be less than 100 characters' };
    }
    // Only allow letters, spaces, hyphens, and apostrophes
-   if (!/^[a-zA-Z\s\-']+$/.test(trimmed)) {
+   if (!/^[a-zA-Z\s-']+$/.test(trimmed)) {
      return { valid: false, error: 'Name contains invalid characters' };
    }
    return { valid: true };
@@ -53,7 +53,7 @@
      return { valid: false, error: 'Phone number is required' };
    }
    // Remove spaces and dashes for validation
-   const cleaned = phone.replace(/[\s\-]/g, '');
+   const cleaned = phone.replace(/[\s-]/g, '');
    // International format: optional + followed by 10-15 digits
    if (!/^\+?[1-9]\d{9,14}$/.test(cleaned)) {
      return { valid: false, error: 'Invalid phone number format' };
@@ -312,7 +312,7 @@
        .update({
          name: body.name.trim(),
          email: body.email.trim().toLowerCase(),
-         phone: body.phone.replace(/[\s\-]/g, '')
+         phone: body.phone.replace(/[\s-]/g, '')
        })
        .eq('user_id', user.id);
  

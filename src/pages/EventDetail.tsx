@@ -1,11 +1,11 @@
- import { useState, useMemo } from 'react';
- import { useParams, useNavigate } from 'react-router-dom';
- import { Layout } from '@/components/Layout';
- import { SeatSelector } from '@/components/SeatSelector';
- import { getEventById, formatPrice, formatDate } from '@/data/events';
- import { useMovieDetails, ShowTime } from '@/hooks/useMovieDetails';
- import { useOccupiedSeats } from '@/hooks/useOccupiedSeats';
- import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Layout } from '@/components/Layout';
+import { SeatSelector } from '@/components/SeatSelector';
+import { getEventById, formatPrice, formatDate } from '@/data/events';
+import { useMovieDetails, ShowTime } from '@/hooks/useMovieDetails';
+import { useOccupiedSeats } from '@/hooks/useOccupiedSeats';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Calendar,
   Clock,
@@ -32,88 +32,88 @@ interface SelectedSeat {
   status: 'available' | 'selected' | 'reserved';
 }
 
- const EventDetail = () => {
-   const { id } = useParams<{ id: string }>();
-   const navigate = useNavigate();
-   const [selectedSeats, setSelectedSeats] = useState<SelectedSeat[]>([]);
-   const [isFavorite, setIsFavorite] = useState(false);
-   const [selectedShow, setSelectedShow] = useState<ShowTime | null>(null);
- 
-   // Try to fetch from API first (for movies)
-   const { data: movieDetails, isLoading: isLoadingMovie } = useMovieDetails(id);
-   
-   // Fetch occupied seats for selected show
-   const { data: occupiedSeats } = useOccupiedSeats(selectedShow?.id);
- 
-   // Fallback to static event data
-   const staticEvent = getEventById(id || '');
-   
-   // Determine which data to use
-   const event = useMemo(() => {
-     if (movieDetails) {
-       return {
-         id: movieDetails.id.toString(),
-         title: movieDetails.title,
-         description: movieDetails.description,
-         category: 'movies' as const,
-         venue: 'Cinema Hall',
-         city: 'Your City',
-         date: movieDetails.shows[0]?.formattedDate || '',
-         time: movieDetails.shows[0]?.formattedTime || '',
-         image: movieDetails.image,
-         price: {
-           min: movieDetails.shows[0]?.price || 500,
-           max: (movieDetails.shows[0]?.price || 500) * 4,
-         },
-         rating: movieDetails.rating,
-         duration: movieDetails.duration,
-         featured: movieDetails.rating >= 7.5,
-         seatsAvailable: 96 - (occupiedSeats?.length || 0),
-         totalSeats: 96,
-         genre: movieDetails.genres[0] || 'Movie',
-         artists: [],
-       };
-     }
-     return staticEvent;
-   }, [movieDetails, staticEvent, occupiedSeats]);
- 
-   // Loading state
-   if (isLoadingMovie) {
-     return (
-       <Layout>
-         <div className="relative h-[50vh] min-h-[400px] overflow-hidden">
-           <Skeleton className="w-full h-full" />
-         </div>
-         <div className="container mx-auto px-4 -mt-32 relative z-10">
-           <div className="grid lg:grid-cols-3 gap-8">
-             <div className="lg:col-span-2 space-y-8">
-               <div className="glass-strong rounded-2xl p-6 md:p-8 space-y-6">
-                 <Skeleton className="h-8 w-32" />
-                 <Skeleton className="h-12 w-3/4" />
-                 <Skeleton className="h-24 w-full" />
-               </div>
-             </div>
-             <div className="lg:col-span-1">
-               <div className="glass-strong rounded-2xl p-6 space-y-6">
-                 <Skeleton className="h-8 w-full" />
-                 <Skeleton className="h-16 w-full" />
-                 <Skeleton className="h-14 w-full" />
-               </div>
-             </div>
-           </div>
-         </div>
-       </Layout>
-     );
-   }
- 
- 
-   // Handle show selection for movies
-   const handleShowSelect = (show: ShowTime) => {
-     setSelectedShow(show);
-     setSelectedSeats([]);
-   };
- 
-   if (!event) {
+const EventDetail = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [selectedSeats, setSelectedSeats] = useState<SelectedSeat[]>([]);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedShow, setSelectedShow] = useState<ShowTime | null>(null);
+
+  // Try to fetch from API first (for movies)
+  const { data: movieDetails, isLoading: isLoadingMovie } = useMovieDetails(id);
+
+  // Fetch occupied seats for selected show
+  const { data: occupiedSeats } = useOccupiedSeats(selectedShow?.id);
+
+  // Fallback to static event data
+  const staticEvent = getEventById(id || '');
+
+  // Determine which data to use
+  const event = useMemo(() => {
+    if (movieDetails) {
+      return {
+        id: movieDetails.id.toString(),
+        title: movieDetails.title,
+        description: movieDetails.description,
+        category: 'movies' as const,
+        venue: 'Cinema Hall',
+        city: 'Your City',
+        date: movieDetails.shows[0]?.formattedDate || '',
+        time: movieDetails.shows[0]?.formattedTime || '',
+        image: movieDetails.image,
+        price: {
+          min: movieDetails.shows[0]?.price || 500,
+          max: (movieDetails.shows[0]?.price || 500) * 4,
+        },
+        rating: movieDetails.rating,
+        duration: movieDetails.duration,
+        featured: movieDetails.rating >= 7.5,
+        seatsAvailable: 96 - (occupiedSeats?.length || 0),
+        totalSeats: 96,
+        genre: movieDetails.genres[0] || 'Movie',
+        artists: [],
+      };
+    }
+    return staticEvent;
+  }, [movieDetails, staticEvent, occupiedSeats]);
+
+  // Loading state
+  if (isLoadingMovie) {
+    return (
+      <Layout>
+        <div className="relative h-[50vh] min-h-[400px] overflow-hidden">
+          <Skeleton className="w-full h-full" />
+        </div>
+        <div className="container mx-auto px-4 -mt-32 relative z-10">
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              <div className="glass-strong rounded-2xl p-6 md:p-8 space-y-6">
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-12 w-3/4" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            </div>
+            <div className="lg:col-span-1">
+              <div className="glass-strong rounded-2xl p-6 space-y-6">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+
+  // Handle show selection for movies
+  const handleShowSelect = (show: ShowTime) => {
+    setSelectedShow(show);
+    setSelectedSeats([]);
+  };
+
+  if (!event) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-20 text-center">
@@ -134,24 +134,43 @@ interface SelectedSeat {
       toast.error('Please select at least one seat');
       return;
     }
-     // Store booking data and navigate to checkout
-     const bookingData = {
-       event,
-       showId: selectedShow?.id,
-       seats: selectedSeats,
-       total: selectedSeats.reduce((acc, s) => acc + s.price, 0),
-     };
+    // Store booking data and navigate to checkout
+    const bookingData = {
+      event,
+      showId: selectedShow?.id,
+      seats: selectedSeats,
+      total: selectedSeats.reduce((acc, s) => acc + s.price, 0),
+    };
     localStorage.setItem('pendingBooking', JSON.stringify(bookingData));
     navigate('/checkout');
   };
 
-  const handleShare = () => {
-    navigator.share?.({
+  const handleShare = async () => {
+    const sharePayload = {
       title: event.title,
       text: event.description,
       url: window.location.href,
-    }) || toast.success('Link copied to clipboard!');
   };
+     };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(sharePayload);
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(sharePayload.url);
+        toast.success('Link copied to clipboard!');
+        return;
+      }
+
+      toast.error('Sharing is not supported on this device.');
+    } catch (error) {
+      console.error('Share failed:', error);
+      toast.error('Unable to share the event right now.');
+    }
+};
 
   const totalAmount = selectedSeats.reduce((acc, s) => acc + s.price, 0);
 
@@ -165,7 +184,7 @@ interface SelectedSeat {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-        
+
         {/* Floating Actions */}
         <div className="absolute top-4 right-4 flex gap-2">
           <Button
@@ -274,49 +293,48 @@ interface SelectedSeat {
                   About
                 </TabsTrigger>
               </TabsList>
-              
-               <TabsContent value="seats" className="mt-6">
-                 <div className="glass-strong rounded-2xl p-6">
-                   {/* Show Time Selection for Movies */}
-                   {movieDetails && movieDetails.shows.length > 0 && (
-                     <div className="mb-8">
-                       <h3 className="font-display text-lg font-semibold text-foreground mb-4">
-                         Select Show Time
-                       </h3>
-                       <div className="flex flex-wrap gap-3">
-                         {movieDetails.shows.map((show) => (
-                           <button
-                             key={show.id}
-                             onClick={() => handleShowSelect(show)}
-                             className={`px-4 py-3 rounded-lg border transition-all ${
-                               selectedShow?.id === show.id
-                                 ? 'border-primary bg-primary/20 text-primary'
-                                 : 'border-border/50 bg-muted/30 text-foreground hover:border-primary/50'
-                             }`}
-                           >
-                             <p className="font-medium">{show.formattedDate}</p>
-                             <p className="text-sm text-muted-foreground">{show.formattedTime}</p>
-                           </button>
-                         ))}
-                       </div>
-                     </div>
-                   )}
-                   
-                   {/* Seat Selector */}
-                   {(!movieDetails || selectedShow) ? (
-                     <SeatSelector 
-                       onSeatsChange={setSelectedSeats}
-                       occupiedSeats={occupiedSeats || []}
-                       showPrice={selectedShow?.price}
-                     />
-                   ) : (
-                     <div className="text-center py-12 text-muted-foreground">
-                       <p>Please select a show time to view available seats</p>
-                     </div>
-                   )}
-                 </div>
-               </TabsContent>
-              
+
+              <TabsContent value="seats" className="mt-6">
+                <div className="glass-strong rounded-2xl p-6">
+                  {/* Show Time Selection for Movies */}
+                  {movieDetails && movieDetails.shows.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="font-display text-lg font-semibold text-foreground mb-4">
+                        Select Show Time
+                      </h3>
+                      <div className="flex flex-wrap gap-3">
+                        {movieDetails.shows.map((show) => (
+                          <button
+                            key={show.id}
+                            onClick={() => handleShowSelect(show)}
+                            className={`px-4 py-3 rounded-lg border transition-all ${selectedShow?.id === show.id
+                                ? 'border-primary bg-primary/20 text-primary'
+                                : 'border-border/50 bg-muted/30 text-foreground hover:border-primary/50'
+                              }`}
+                          >
+                            <p className="font-medium">{show.formattedDate}</p>
+                            <p className="text-sm text-muted-foreground">{show.formattedTime}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Seat Selector */}
+                  {(!movieDetails || selectedShow) ? (
+                    <SeatSelector
+                      onSeatsChange={setSelectedSeats}
+                      occupiedSeats={occupiedSeats || []}
+                      showPrice={selectedShow?.price}
+                    />
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p>Please select a show time to view available seats</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
               <TabsContent value="about" className="mt-6">
                 <div className="glass-strong rounded-2xl p-6 space-y-6">
                   <div>

@@ -7,10 +7,10 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { events, featuredEvents, getEventsByCategory, categories } from '@/data/events';
 import { ArrowRight, Sparkles, TrendingUp, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
+type CategoryId = (typeof categories)[number]['id'];
 const Index = () => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const filteredEvents = getEventsByCategory(selectedCategory as any);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
+  const filteredEvents = getEventsByCategory(selectedCategory);
 
   return (
     <Layout>

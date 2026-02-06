@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
- import { formatPrice, formatDate } from '@/data/events';
- import { useUser } from '@clerk/clerk-react';
- import { useCreateBooking, useVerifyPayment } from '@/hooks/useBookings';
- import { loadRazorpayScript, openRazorpayCheckout, RazorpayResponse } from '@/lib/razorpay';
- import { z } from 'zod';
+import { formatPrice, formatDate } from '@/data/events';
+import { useUser } from '@clerk/clerk-react';
+import { useCreateBooking, useVerifyPayment } from '@/hooks/useBookings';
+import { loadRazorpayScript, openRazorpayCheckout, RazorpayResponse } from '@/lib/razorpay';
+import { z } from 'zod';
 import {
   CreditCard,
   Lock,
@@ -21,27 +21,27 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
- // Validation schema for checkout form
- const checkoutSchema = z.object({
-   name: z
-     .string()
-     .trim()
-     .min(2, 'Name must be at least 2 characters')
-     .max(100, 'Name must be less than 100 characters')
-     .regex(/^[a-zA-Z\s\-']+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes'),
-   email: z
-     .string()
-     .trim()
-     .email('Please enter a valid email address')
-     .max(255, 'Email must be less than 255 characters'),
-   phone: z
-     .string()
-     .transform((val) => val.replace(/[\s\-]/g, ''))
-     .refine((val) => /^\+?[1-9]\d{9,14}$/.test(val), 'Please enter a valid phone number'),
- });
- 
- type CheckoutFormData = z.infer<typeof checkoutSchema>;
- 
+// Validation schema for checkout form
+const checkoutSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must be less than 100 characters')
+    .regex(/^[a-zA-Z\s-']+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes'),
+  email: z
+    .string()
+    .trim()
+    .email('Please enter a valid email address')
+    .max(255, 'Email must be less than 255 characters'),
+  phone: z
+    .string()
+    .transform((val) => val.replace(/[\s-]/g, ''))
+    .refine((val) => /^\+?[1-9]\d{9,14}$/.test(val), 'Please enter a valid phone number'),
+});
+
+type CheckoutFormData = z.infer<typeof checkoutSchema>;
+
 interface BookingData {
   event: {
     id: string;
@@ -57,19 +57,19 @@ interface BookingData {
     price: number;
     seatId?: string; // Database UUID for the seat
   }>;
- total: number;
-   showId?: string; // For MERN backend
- }
+  total: number;
+  showId?: string; // For MERN backend
+}
 
 const Checkout = () => {
   const navigate = useNavigate();
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-   const [errors, setErrors] = useState<Record<string, string>>({});
-   const { user, isLoaded } = useUser();
-   const createBooking = useCreateBooking();
-   const verifyPayment = useVerifyPayment();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { user, isLoaded } = useUser();
+  const createBooking = useCreateBooking();
+  const verifyPayment = useVerifyPayment();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -89,106 +89,106 @@ const Checkout = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-   const validateForm = (): boolean => {
-     try {
-       checkoutSchema.parse(formData);
-       setErrors({});
-       return true;
-     } catch (error) {
-       if (error instanceof z.ZodError) {
-         const newErrors: Record<string, string> = {};
-         error.errors.forEach((err) => {
-           if (err.path[0]) {
-             newErrors[err.path[0] as string] = err.message;
-           }
-         });
-         setErrors(newErrors);
-       }
-       return false;
-     }
-   };
- 
-   const handlePayment = async () => {
-     // Client-side validation first
-     if (!validateForm()) {
-       toast.error('Please fix the form errors');
-       return;
-     }
- 
-     if (!bookingData) return;
- 
-     // Check if user is authenticated (Clerk)
-     if (!isLoaded || !user) {
-       toast.error('Please sign in to complete your booking');
-       navigate('/auth');
-       return;
-     }
- 
-     setIsProcessing(true);
- 
-     try {
-       // Load Razorpay script
-       const scriptLoaded = await loadRazorpayScript();
-       if (!scriptLoaded) {
-         toast.error('Failed to load payment gateway. Please refresh and try again.');
-         setIsProcessing(false);
-         return;
-       }
- 
-       // Get seat IDs
-       const seatIds = bookingData.seats.map(seat => seat.id);
- 
-       // Create booking via MERN backend
-       const result = await createBooking.mutateAsync({
-         showId: bookingData.showId || bookingData.event.id,
-         seats: seatIds,
-       });
- 
-       // Open Razorpay checkout modal
-       openRazorpayCheckout(
-         {
-           orderId: result.razorpayOrder.id,
-           amount: result.razorpayOrder.amount,
-           currency: result.razorpayOrder.currency,
-         },
-         {
-           name: formData.name,
-           email: formData.email,
-           phone: formData.phone,
-         },
-         bookingData.event.title,
-         async (response: RazorpayResponse) => {
-           // Verify payment
-           try {
-             await verifyPayment.mutateAsync({
-               razorpay_payment_id: response.razorpay_payment_id,
-               razorpay_order_id: response.razorpay_order_id,
-               razorpay_signature: response.razorpay_signature,
-               bookingId: result.booking._id,
-             });
- 
-             setIsProcessing(false);
-             setIsSuccess(true);
-             localStorage.removeItem('pendingBooking');
-             toast.success('Payment successful! Your tickets have been booked.');
-           } catch (verifyError) {
-             console.error('Payment verification error:', verifyError);
-             toast.error('Payment verification failed. Please contact support.');
-             setIsProcessing(false);
-           }
-         },
-         () => {
-           // On dismiss
-           setIsProcessing(false);
-           toast.info('Payment cancelled');
-         }
-       );
-     } catch (error) {
-       console.error('Payment error:', error);
-       toast.error('An error occurred during payment. Please try again.');
-       setIsProcessing(false);
-     }
-   };
+  const validateForm = (): boolean => {
+    try {
+      checkoutSchema.parse(formData);
+      setErrors({});
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: Record<string, string> = {};
+        error.errors.forEach((err) => {
+          if (err.path[0]) {
+            newErrors[err.path[0] as string] = err.message;
+          }
+        });
+        setErrors(newErrors);
+      }
+      return false;
+    }
+  };
+
+  const handlePayment = async () => {
+    // Client-side validation first
+    if (!validateForm()) {
+      toast.error('Please fix the form errors');
+      return;
+    }
+
+    if (!bookingData) return;
+
+    // Check if user is authenticated (Clerk)
+    if (!isLoaded || !user) {
+      toast.error('Please sign in to complete your booking');
+      navigate('/auth');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      // Load Razorpay script
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error('Failed to load payment gateway. Please refresh and try again.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Get seat IDs
+      const seatIds = bookingData.seats.map((seat) => seat.id);
+
+      // Create booking via MERN backend
+      const result = await createBooking.mutateAsync({
+        showId: bookingData.showId || bookingData.event.id,
+        seats: seatIds,
+      });
+
+      // Open Razorpay checkout modal
+      openRazorpayCheckout(
+        {
+          orderId: result.razorpayOrder.id,
+          amount: result.razorpayOrder.amount,
+          currency: result.razorpayOrder.currency,
+        },
+        {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        bookingData.event.title,
+        async (response: RazorpayResponse) => {
+          // Verify payment
+          try {
+            await verifyPayment.mutateAsync({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              bookingId: result.booking._id,
+            });
+
+            setIsProcessing(false);
+            setIsSuccess(true);
+            localStorage.removeItem('pendingBooking');
+            toast.success('Payment successful! Your tickets have been booked.');
+          } catch (verifyError) {
+            console.error('Payment verification error:', verifyError);
+            toast.error('Payment verification failed. Please contact support.');
+            setIsProcessing(false);
+          }
+        },
+        () => {
+          // On dismiss
+          setIsProcessing(false);
+          toast.info('Payment cancelled');
+        }
+      );
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('An error occurred during payment. Please try again.');
+      setIsProcessing(false);
+    }
+  };
 
   if (!bookingData) {
     return (
@@ -305,11 +305,11 @@ const Checkout = () => {
                     value={formData.name}
                     onChange={handleInputChange}
                     placeholder="Enter your full name"
-                     className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.name ? 'border-destructive' : ''}`}
+                    className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.name ? 'border-destructive' : ''}`}
                   />
-                   {errors.name && (
-                     <p className="text-sm text-destructive mt-1">{errors.name}</p>
-                   )}
+                  {errors.name && (
+                    <p className="text-sm text-destructive mt-1">{errors.name}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="email">Email Address *</Label>
@@ -320,11 +320,11 @@ const Checkout = () => {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="your@email.com"
-                     className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.email ? 'border-destructive' : ''}`}
+                    className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.email ? 'border-destructive' : ''}`}
                   />
-                   {errors.email && (
-                     <p className="text-sm text-destructive mt-1">{errors.email}</p>
-                   )}
+                  {errors.email && (
+                    <p className="text-sm text-destructive mt-1">{errors.email}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number *</Label>
@@ -335,11 +335,11 @@ const Checkout = () => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="+91 98765 43210"
-                     className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.phone ? 'border-destructive' : ''}`}
+                    className={`mt-1 h-12 bg-muted/50 border-border/50 ${errors.phone ? 'border-destructive' : ''}`}
                   />
-                   {errors.phone && (
-                     <p className="text-sm text-destructive mt-1">{errors.phone}</p>
-                   )}
+                  {errors.phone && (
+                    <p className="text-sm text-destructive mt-1">{errors.phone}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -349,7 +349,7 @@ const Checkout = () => {
                 <CreditCard className="w-6 h-6 text-primary" />
                 Payment
               </h2>
-              
+
               <div className="bg-muted/30 rounded-xl p-4 border border-border/50 mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <img
