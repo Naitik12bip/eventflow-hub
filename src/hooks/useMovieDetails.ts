@@ -1,27 +1,29 @@
  import { useQuery } from '@tanstack/react-query';
  import api, { getTMDBImageUrl } from '@/lib/api';
  
- // Backend response for movie details with shows
- interface MovieDetailsResponse {
-   movie: {
-     id: number;
-     title: string;
-     overview: string;
-     poster_path: string | null;
-     backdrop_path: string | null;
-     vote_average: number;
-     runtime: number;
-     genres: Array<{ id: number; name: string }>;
-     release_date: string;
-   };
-   shows: Array<{
-     _id: string;
-     movieId: number;
-     showDateTime: string;
-     showPrice: number;
-     occupiedSeats: string[];
-   }>;
- }
+// Backend response for movie details with shows
+interface MovieDetailsResponse {
+  success: boolean;
+  movie: {
+    id: number;
+    _id: string;
+    title: string;
+    overview: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    vote_average: number;
+    runtime: number;
+    genres: Array<{ id: number; name: string }>;
+    release_date: string;
+  };
+  shows: Array<{
+    _id: string;
+    movieId: string;
+    showDateTime: string;
+    showPrice: number;
+    occupiedSeats: string[];
+  }>;
+}
  
  export interface ShowTime {
    id: string;
@@ -45,15 +47,16 @@
    shows: ShowTime[];
  }
  
- // Fetch movie details with available shows
- export const useMovieDetails = (movieId: string | undefined) => {
-   return useQuery({
-     queryKey: ['movieDetails', movieId],
-     queryFn: async (): Promise<MovieDetails> => {
-       if (!movieId) throw new Error('Movie ID is required');
-       
-       const response = await api.get<MovieDetailsResponse>(`/show/${movieId}`);
-       const { movie, shows } = response.data;
+// Fetch movie details with available shows
+export const useMovieDetails = (movieId: string | undefined) => {
+  return useQuery({
+    queryKey: ['movieDetails', movieId],
+    queryFn: async (): Promise<MovieDetails> => {
+      if (!movieId) throw new Error('Movie ID is required');
+      
+      const response = await api.get<MovieDetailsResponse>(`/show/${movieId}`);
+      if (!response.data.success) throw new Error('Failed to fetch movie details');
+      const { movie, shows } = response.data;
        
        return {
          id: movie.id,

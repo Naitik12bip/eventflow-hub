@@ -51,13 +51,20 @@ const mapShowToEvent = (show: BackendShow): Event => {
   };
 };
 
+// API response wrapper
+interface ShowsResponse {
+  success: boolean;
+  shows: BackendShow[];
+}
+
 // Hook
 export const useShows = () => {
   return useQuery({
     queryKey: ['shows'],
     queryFn: async () => {
-      const res = await api.get<BackendShow[]>('/show/all');
-      return res.data.map(mapShowToEvent);
+      const res = await api.get<ShowsResponse>('/show/all');
+      if (!res.data.success) throw new Error('Failed to fetch shows');
+      return res.data.shows.map(mapShowToEvent);
     },
     staleTime: 5 * 60 * 1000,
   });
