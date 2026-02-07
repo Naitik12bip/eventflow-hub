@@ -55,10 +55,10 @@ interface BookingData {
   seats: Array<{
     id: string;
     price: number;
-    seatId?: string; // Database UUID for the seat
+    seatId?: string;
   }>;
   total: number;
-  showId?: string; // For MERN backend
+  showId?: string;
 }
 
 const Checkout = () => {
@@ -135,21 +135,26 @@ const Checkout = () => {
         return;
       }
 
-      // Get seat IDs
+      // Get seat IDs and calculate price
       const seatIds = bookingData.seats.map((seat) => seat.id);
+      const ticketPrice = bookingData.seats[0]?.price || 200;
 
-      // Create booking via MERN backend
+      // Create booking via Supabase Edge Function
       const result = await createBooking.mutateAsync({
+        eventId: bookingData.event.id,
         showId: bookingData.showId || bookingData.event.id,
-        seats: seatIds,
+        seatIds,
+        ticketPrice,
       });
+
+      console.log('Order created:', result);
 
       // Open Razorpay checkout modal
       openRazorpayCheckout(
         {
-          orderId: result.razorpayOrder.id,
-          amount: result.razorpayOrder.amount,
-          currency: result.razorpayOrder.currency,
+          orderId: result.orderId,
+          amount: result.amount,
+          currency: result.currency,
         },
         {
           name: formData.name,
@@ -164,7 +169,7 @@ const Checkout = () => {
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
-              bookingId: result.booking._id,
+              bookingId: result.bookingId,
             });
 
             setIsProcessing(false);
@@ -266,7 +271,7 @@ const Checkout = () => {
               <Button variant="outline" onClick={() => navigate('/events')}>
                 Book More Events
               </Button>
-              <Button className="btn-primary">
+              <Button className="btn-primary" onClick={() => navigate('/my-bookings')}>
                 <Ticket className="w-4 h-4 mr-2" />
                 View My Tickets
               </Button>
