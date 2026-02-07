@@ -1,185 +1,277 @@
 
+# Complete Implementation Plan: Dummy Data + Razorpay Payment Integration
 
-# Fix Plan: Backend Changes + Button Interactivity
+## Overview
 
-## Summary
-
-There are two related issues:
-1. **Backend code needs fixing** - Your `showRoutes.js` contains wrong code
-2. **Buttons appear non-functional** - The frontend cannot reach your local backend from Lovable's cloud preview
+This plan implements three major changes:
+1. Add your dummy data file and use it instead of live API data
+2. Fix the build error in `CommunityEvents.tsx`
+3. Implement complete Razorpay payment integration using Supabase Edge Functions (since you're using Lovable Cloud)
 
 ---
 
-## Part 1: Required Backend Changes
+## Part 1: Add Dummy Data & Fix Build Error
 
-You need to make these changes to your MERN backend code:
+### 1.1 Create Dummy Data File
 
-### 1.1 Fix `server/routes/showRoutes.js`
+Create `src/data/dummyData.ts` with:
+- `dummyShowsData` - Movie/show listings
+- `dummyCastsData` - Cast information
+- `dummyTrailers` - Trailer data
+- `dummyDateTimeData` - Available show times
+- `dummyBookingData` - Sample bookings
 
-Your current file incorrectly contains user routes code. Replace the **entire file** with:
+This data will be converted to match your existing `Event` interface format.
 
-```javascript
-import express from "express";
-import { getNowPlayingMovies, addShow, getShows, getShow } from "../controllers/showController.js";
+### 1.2 Update useShows Hook
 
-const showRouter = express.Router();
+Modify `src/hooks/useShows.ts` to:
+- Import dummy data instead of calling API
+- Return dummy data directly (no network calls)
+- Keep the same interface (`ShowsQueryResult`) for compatibility
 
-showRouter.get('/now-playing', getNowPlayingMovies);
-showRouter.post('/add', addShow);
-showRouter.get('/all', getShows);
-showRouter.get('/:movieId', getShow);
+### 1.3 Update useMovieDetails Hook
 
-export default showRouter;
-```
+Modify `src/hooks/useMovieDetails.ts` to:
+- Use dummy data for movie details
+- Map `dummyShowsData` to `MovieDetails` format
+- Use `dummyDateTimeData` for show times
 
-### 1.2 Update `server/controllers/showController.js`
+### 1.4 Fix CommunityEvents.tsx Build Error
 
-**Replace `getShows` function:**
-```javascript
-export const getShows = async (req, res) => {
-  try {
-    const shows = await Show.find({ showDateTime: { $gte: new Date() } })
-      .populate('movie')
-      .sort({ showDateTime: 1 });
+The error occurs because `useShows()` returns `ShowsQueryResult` (an object) but the code tries to cast it as `any[]`. 
 
-    const movieShowsMap = new Map();
-    shows.forEach(show => {
-      if (!show.movie) return;
-      const movieId = show.movie._id.toString();
-      if (!movieShowsMap.has(movieId)) {
-        movieShowsMap.set(movieId, {
-          _id: show._id,
-          movieId: show.movie._id,
-          showDateTime: show.showDateTime,
-          showPrice: show.showPrice,
-          occupiedSeats: show.occupiedSeats || [],
-          movie: {
-            id: show.movie._id,
-            title: show.movie.title,
-            overview: show.movie.overview,
-            poster_path: show.movie.poster_path,
-            vote_average: show.movie.vote_average,
-            runtime: show.movie.runtime,
-            genres: show.movie.genres,
-            release_date: show.movie.release_date
-          }
-        });
-      }
-    });
-
-    res.json({ success: true, shows: Array.from(movieShowsMap.values()) });
-  } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: error.message });
-  }
-};
-```
-
-**Replace `getShow` function:**
-```javascript
-export const getShow = async (req, res) => {
-  try {
-    const { movieId } = req.params;
-    const shows = await Show.find({ movie: movieId, showDateTime: { $gte: new Date() } });
-    const movie = await Movie.findById(movieId);
-
-    if (!movie) {
-      return res.json({ success: false, message: 'Movie not found' });
-    }
-
-    const formattedShows = shows.map(show => ({
-      _id: show._id,
-      movieId: show.movie,
-      showDateTime: show.showDateTime,
-      showPrice: show.showPrice,
-      occupiedSeats: show.occupiedSeats || []
-    }));
-
-    res.json({ success: true, movie, shows: formattedShows });
-  } catch (error) {
-    console.error(error);
-    res.json({ success: false, message: error.message });
-  }
-};
-```
-
-### 1.3 Update CORS in `server/server.js`
-
-Add Lovable preview URL to allowed origins:
-```javascript
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:8080',
-    'https://id-preview--95350e67-f0bf-48f0-90d1-522f7504e5de.lovable.app'
-  ],
-  credentials: true
-}));
+Fix: Extract `events` from the data object properly:
+```typescript
+const { data, isLoading, isError } = useShows();
+const events = data?.events || [];
 ```
 
 ---
 
-## Part 2: Why Buttons Appear Non-Functional
+## Part 2: Razorpay Payment Integration (Backend)
 
-### Root Cause
-The Lovable preview runs in the cloud at `https://id-preview--95350e67-f0bf-48f0-90d1-522f7504e5de.lovable.app`. It **cannot connect to `localhost:3000`** on your machine because:
-- `localhost` refers to the cloud server, not your computer
-- There's no network path from the cloud to your local machine
+Since you're using Lovable Cloud, we'll create Supabase Edge Functions for the backend. Your external MERN backend is not reachable from the cloud preview, so this is the production-ready approach.
 
-### What This Causes
-- API calls to `/show/all` fail (network error)
-- The Events page shows infinite loading spinner
-- Buttons that depend on API data appear frozen
-- Pages that need backend data don't render properly
+### 2.1 Create Payment Configuration
 
-### Solution Options
+You'll need to provide:
+- `RAZORPAY_KEY_ID` - Your Razorpay Key ID (publishable, safe to expose in frontend)
+- `RAZORPAY_KEY_SECRET` - Your Razorpay Secret Key (stored securely in Supabase secrets)
 
-**Option A: Deploy your backend (Recommended)**
-Deploy your MERN backend to a cloud service:
-- **Render** (free tier available) - https://render.com
-- **Railway** - https://railway.app
-- **Vercel** (for serverless) - https://vercel.com
+### 2.2 Create Edge Function: `create-razorpay-order`
 
-Then update the `VITE_API_BASE_URL` to your deployed URL.
+**Endpoint**: POST `/functions/v1/create-razorpay-order`
 
-**Option B: Test locally only**
-Run both frontend and backend on your local machine:
-1. Clone your Lovable project locally
-2. Run `npm run dev` (frontend on localhost:5173)
-3. Run your MERN backend (`npm run dev` on localhost:3000)
-4. Access http://localhost:5173 in your browser
+**Purpose**: Create a Razorpay order for ticket purchase
+
+**Input**:
+```typescript
+{
+  eventId: string;      // Movie/event ID
+  showId: string;       // Show time ID
+  seatIds: string[];    // Selected seat IDs
+  ticketPrice: number;  // Price per ticket
+}
+```
+
+**Process**:
+1. Validate user is authenticated
+2. Calculate total amount server-side (never trust frontend prices)
+3. Create Razorpay order via their API
+4. Store pending booking in `bookings` table with status `pending`
+5. Return order_id and amount
+
+**Output**:
+```typescript
+{
+  orderId: string;
+  amount: number;      // Amount in paise
+  currency: string;    // "INR"
+  bookingId: string;   // Database booking ID
+}
+```
+
+### 2.3 Create Edge Function: `verify-razorpay-payment`
+
+**Endpoint**: POST `/functions/v1/verify-razorpay-payment`
+
+**Purpose**: Verify Razorpay payment signature and confirm booking
+
+**Input**:
+```typescript
+{
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+  bookingId: string;
+}
+```
+
+**Process**:
+1. Verify signature using HMAC SHA256
+2. If valid:
+   - Update booking status to `confirmed`
+   - Mark seats as booked
+   - Create payment record
+   - Create tickets
+3. If invalid:
+   - Update booking status to `failed`
+   - Release seats
+
+**Output**:
+```typescript
+{
+  success: boolean;
+  message: string;
+  bookingId?: string;
+}
+```
+
+### 2.4 Database Schema Updates
+
+Create/update tables for payments:
+
+```sql
+-- Payments table (if not exists)
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  booking_id UUID REFERENCES bookings(id),
+  razorpay_order_id TEXT NOT NULL,
+  razorpay_payment_id TEXT,
+  razorpay_signature TEXT,
+  amount INTEGER NOT NULL,
+  currency TEXT DEFAULT 'INR',
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add RLS policies
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own payments"
+  ON payments FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "System can insert payments"
+  ON payments FOR INSERT
+  WITH CHECK (true);
+```
 
 ---
 
-## Part 3: Frontend Improvements (I will implement)
+## Part 3: Razorpay Payment Integration (Frontend)
 
-To improve user experience while the backend is not connected:
+### 3.1 Update Razorpay Configuration
 
-1. **Add error handling to Events page** - Show "Unable to connect to server" instead of infinite loading
-2. **Add timeout to API calls** - Fail fast if server is unreachable
-3. **Show mock/demo data** - Allow users to explore the UI even without backend
+Already exists at `src/lib/razorpay.ts` - will add:
+- Better error handling
+- TypeScript improvements
+- Support for calling Supabase edge functions
+
+### 3.2 Create Payment Hooks
+
+Update `src/hooks/useBookings.ts`:
+- `useCreateRazorpayOrder` - Call edge function to create order
+- `useVerifyRazorpayPayment` - Call edge function to verify payment
+- Use Supabase client instead of axios for authentication
+
+### 3.3 Update Checkout Page
+
+Modify `src/pages/Checkout.tsx`:
+- Replace MERN backend calls with Supabase edge function calls
+- Handle Razorpay checkout flow
+- Show success/error states
+- Navigate to confirmation page
 
 ---
 
-## Summary Checklist
+## File Changes Summary
 
-| Task | Who | Status |
-|------|-----|--------|
-| Fix `showRoutes.js` | You (backend) | Pending |
-| Update `getShows` controller | You (backend) | Pending |
-| Update `getShow` controller | You (backend) | Pending |
-| Add CORS for Lovable URL | You (backend) | Pending |
-| Deploy backend to cloud | You | Pending |
-| Add error handling UI | Me (frontend) | Will implement |
-| Add timeout/fallback | Me (frontend) | Will implement |
+| File | Action | Description |
+|------|--------|-------------|
+| `src/data/dummyData.ts` | Create | Dummy data from your assets.js |
+| `src/hooks/useShows.ts` | Modify | Use dummy data instead of API |
+| `src/hooks/useMovieDetails.ts` | Modify | Use dummy data for movie details |
+| `src/pages/CommunityEvents.tsx` | Modify | Fix TypeScript build error |
+| `supabase/functions/create-razorpay-order/index.ts` | Create | Edge function for order creation |
+| `supabase/functions/verify-razorpay-payment/index.ts` | Create | Edge function for payment verification |
+| `src/hooks/useBookings.ts` | Modify | Use Supabase edge functions |
+| `src/pages/Checkout.tsx` | Modify | Integrate with new payment flow |
 
 ---
 
-## Next Steps
+## Database Migration
 
-1. Make the backend changes listed above
-2. Either:
-   - Deploy your backend and share the URL, OR
-   - Test locally by running both projects on your machine
-3. I'll implement better error handling so the UI doesn't appear frozen when the backend is unreachable
+```sql
+-- Create payments table for Razorpay integration
+CREATE TABLE IF NOT EXISTS public.payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  booking_id UUID REFERENCES public.bookings(id),
+  razorpay_order_id TEXT NOT NULL,
+  razorpay_payment_id TEXT,
+  razorpay_signature TEXT,
+  amount INTEGER NOT NULL,
+  currency TEXT DEFAULT 'INR',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
+-- Enable RLS
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+-- Users can view their own payments
+CREATE POLICY "Users can view own payments"
+  ON public.payments FOR SELECT
+  USING (auth.uid() = user_id);
+```
+
+---
+
+## Environment Variables Needed
+
+| Variable | Where | Description |
+|----------|-------|-------------|
+| `VITE_RAZORPAY_KEY_ID` | Frontend (.env) | Razorpay Key ID (publishable) |
+| `RAZORPAY_KEY_SECRET` | Supabase Secrets | Razorpay Secret Key (private) |
+
+---
+
+## Security Considerations
+
+1. **Never trust frontend prices** - Calculate totals server-side
+2. **Always verify payment signature** - Use HMAC SHA256 with secret key
+3. **Atomic transactions** - Update booking + seats + payment together
+4. **RLS policies** - Users can only see their own data
+5. **Service role key** - Only used in edge functions for admin operations
+
+---
+
+## Testing Flow
+
+After implementation:
+1. Browse events (uses dummy data)
+2. Select movie → Select show time → Select seats
+3. Click "Book Now" → Checkout page
+4. Fill contact info → Click "Pay"
+5. Razorpay modal opens
+6. Complete test payment (use Razorpay test cards)
+7. Payment verified → Booking confirmed
+8. View booking in "My Bookings"
+
+---
+
+## Next Step Required
+
+Before I can implement the Razorpay integration, you need to provide:
+
+1. **RAZORPAY_KEY_ID** - I'll add this to the frontend code
+2. **RAZORPAY_KEY_SECRET** - I'll request this via Supabase secrets tool
+
+Do you want me to:
+1. Start implementation with just dummy data first?
+2. Proceed with full Razorpay integration (you'll need to provide keys)?
