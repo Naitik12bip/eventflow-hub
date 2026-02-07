@@ -5,7 +5,7 @@ import { useShows } from '@/hooks/useShows';
 
 const CommunityEvents = () => {
   const { data, isLoading, isError } = useShows();
-  const events = (data as any[]) || [];
+  const events = data?.events || [];
   const freeEvents = events.filter((event) => event.price?.min === 0);
 
   if (isLoading) {

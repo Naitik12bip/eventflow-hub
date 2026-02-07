@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import api, { getTMDBImageUrl } from '@/lib/api';
 import { Event, EventCategory } from '@/data/events';
+import { dummyShowsData, DummyShow } from '@/data/dummyData';
 
-// Backend show type
+// Backend show type (kept for reference)
 export interface BackendShow {
   _id: string;
   movieId: number;
@@ -26,64 +26,54 @@ export interface ShowsQueryResult {
   isFallbackData: boolean;
 }
 
-
-// Mapper
-const mapShowToEvent = (show: BackendShow): Event => {
-  const showDate = new Date(show.showDateTime);
+// Map dummy show to Event format
+const mapDummyShowToEvent = (show: DummyShow): Event => {
+  // Generate a show date in the next 7 days
+  const today = new Date();
+  const randomDays = Math.floor(Math.random() * 7);
+  const showDate = new Date(today);
+  showDate.setDate(showDate.getDate() + randomDays);
 
   return {
     id: show._id,
-    title: show.movie.title,
-    description: show.movie.overview,
+    title: show.title,
+    description: show.overview,
     category: 'movies' as EventCategory,
     venue: 'Cinema Hall',
     city: 'Ahmedabad',
     date: showDate.toISOString().split('T')[0],
-    time: showDate.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    image: getTMDBImageUrl(show.movie.poster_path),
+    time: '18:00',
+    image: show.poster_path,
     price: {
-      min: show.showPrice,
-      max: show.showPrice,
+      min: 150,
+      max: 350,
     },
-    rating: show.movie.vote_average,
-    duration: `${show.movie.runtime} min`,
-    featured: show.movie.vote_average >= 7.5,
-    seatsAvailable: 96 - show.occupiedSeats.length,
+    rating: show.vote_average,
+    duration: `${show.runtime} min`,
+    featured: show.vote_average >= 7.0,
+    seatsAvailable: 90,
     totalSeats: 96,
-    genre: show.movie.genres?.[0]?.name || 'Movie',
+    genre: show.genres?.[0]?.name || 'Movie',
   };
 };
 
-// API response wrapper
-interface ShowsResponse {
-  success: boolean;
-  shows: BackendShow[];
-}
-
-// Live - data hook 
+// Dummy data hook - returns static data without API calls
 export const useShows = () => {
-  return useQuery<ShowsQueryResult>({ // Expecting { events: Event[], isFallbackData: boolean }
+  return useQuery<ShowsQueryResult>({
     queryKey: ['shows'],
     queryFn: async () => {
-      const res = await api.get<ShowsResponse>('/show/all');
-      
-      if (!res.data.success) {
-        throw new Error('Failed to fetch shows');
-      }
+      // Simulate a small delay for realistic loading state
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // 1. Map the data as usual
-      const mappedEvents = res.data.shows.map(mapShowToEvent);
+      // Map dummy data to Event format
+      const mappedEvents = dummyShowsData.map(mapDummyShowToEvent);
 
-      // 2. Return the object that matches ShowsQueryResult
       return {
         events: mappedEvents,
-        isFallbackData: false // Since this came from the API, it's not fallback data
+        isFallbackData: true, // Always true since we're using dummy data
       };
     },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
+    staleTime: Infinity, // Never stale since it's static data
+    gcTime: Infinity, // Keep in cache forever
   });
 };
