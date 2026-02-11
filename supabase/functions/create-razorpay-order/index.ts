@@ -27,7 +27,10 @@ serve(async (req) => {
       console.error("No authorization header provided");
       return new Response(
         JSON.stringify({ error: "Unauthorized - No token provided" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -35,18 +38,22 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     );
 
     // Validate user
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: claimsData, error: claimsError } = await supabase.auth
+      .getClaims(token);
 
     if (claimsError || !claimsData?.claims) {
       console.error("Auth error:", claimsError);
       return new Response(
         JSON.stringify({ error: "Unauthorized - Invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -57,13 +64,26 @@ serve(async (req) => {
     const body: CreateOrderRequest = await req.json();
     const { eventId, showId, seatIds, ticketPrice } = body;
 
-    console.log("Create order request:", { eventId, showId, seatIds, ticketPrice });
+    console.log("Create order request:", {
+      eventId,
+      showId,
+      seatIds,
+      ticketPrice,
+    });
 
     // Validate input
-    if (!eventId || !showId || !seatIds || seatIds.length === 0 || !ticketPrice) {
+    if (
+      !eventId || !showId || !seatIds || seatIds.length === 0 || !ticketPrice
+    ) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: eventId, showId, seatIds, ticketPrice" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error:
+            "Missing required fields: eventId, showId, seatIds, ticketPrice",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -74,7 +94,13 @@ serve(async (req) => {
     const totalAmount = subtotal + convenienceFee;
     const amountInPaise = totalAmount * 100; // Razorpay expects amount in paise
 
-    console.log("Calculated amounts:", { quantity, subtotal, convenienceFee, totalAmount, amountInPaise });
+    console.log("Calculated amounts:", {
+      quantity,
+      subtotal,
+      convenienceFee,
+      totalAmount,
+      amountInPaise,
+    });
 
     // Get Razorpay credentials
     const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID");
@@ -84,7 +110,10 @@ serve(async (req) => {
       console.error("Razorpay credentials not configured");
       return new Response(
         JSON.stringify({ error: "Payment gateway not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -114,7 +143,10 @@ serve(async (req) => {
       console.error("Razorpay order creation failed:", errorText);
       return new Response(
         JSON.stringify({ error: "Failed to create payment order" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -124,7 +156,7 @@ serve(async (req) => {
     // Use service role for database operations
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // Create pending booking in database
@@ -144,20 +176,25 @@ serve(async (req) => {
       console.error("Failed to create booking:", bookingError);
       return new Response(
         JSON.stringify({ error: "Failed to create booking record" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     console.log("Booking created:", booking.id);
 
     // Create pending payment record
-    const { error: paymentError } = await supabaseAdmin.from("payments").insert({
-      user_id: userId,
-      booking_id: booking.id,
-      razorpay_order_id: razorpayOrder.id,
-      amount: totalAmount,
-      status: "pending",
-    });
+    const { error: paymentError } = await supabaseAdmin.from("payments").insert(
+      {
+        user_id: userId,
+        booking_id: booking.id,
+        razorpay_order_id: razorpayOrder.id,
+        amount: totalAmount,
+        status: "pending",
+      },
+    );
 
     if (paymentError) {
       console.error("Failed to create payment record:", paymentError);
@@ -174,13 +211,23 @@ serve(async (req) => {
         bookingId: booking.id,
         keyId: razorpayKeyId, // Send key ID for frontend checkout
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   } catch (error) {
     console.error("Error in create-razorpay-order:", error);
+
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
