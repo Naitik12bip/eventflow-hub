@@ -4,10 +4,11 @@
  import { Layout } from '@/components/Layout';
  import { useUserBookings } from '@/hooks/useBookings';
  import { formatPrice } from '@/data/events';
- import { Calendar, MapPin, Ticket, Clock, CheckCircle, AlertCircle } from 'lucide-react';
- import { Button } from '@/components/ui/button';
- import { Skeleton } from '@/components/ui/skeleton';
- import { Badge } from '@/components/ui/badge';
+import { Calendar, MapPin, Ticket, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import TicketModal from '@/components/TicketModal';
  
  const MyBookings = () => {
    const navigate = useNavigate();
@@ -150,19 +151,24 @@
                       </div>
  
                      <div className="flex flex-wrap justify-between items-end gap-4 pt-2 border-t border-border/50">
-                       <div>
-                         <p className="text-sm text-muted-foreground">Seats</p>
-                         <p className="font-medium text-foreground">
-                           {booking.seats.join(', ')}
-                         </p>
-                       </div>
-                       <div className="text-right">
-                         <p className="text-sm text-muted-foreground">Total</p>
-                         <p className="font-display text-xl font-bold text-primary">
-                           {formatPrice(booking.totalAmount)}
-                         </p>
-                       </div>
-                     </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Seats</p>
+                          <p className="font-medium text-foreground">
+                            {booking.seats.length > 0 ? booking.seats.join(', ') : `${booking.ticketCount} ticket(s)`}
+                          </p>
+                        </div>
+                        <div className="flex items-end gap-4">
+                          {booking.status === 'confirmed' && (
+                            <TicketModal booking={booking} />
+                          )}
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Total</p>
+                            <p className="font-display text-xl font-bold text-primary">
+                              {formatPrice(booking.totalAmount)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                    </div>
                  </div>
                </div>
