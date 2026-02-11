@@ -8,23 +8,24 @@ const CLERK_SUPABASE_TEMPLATE = import.meta.env.VITE_CLERK_SUPABASE_JWT_TEMPLATE
 const getEdgeFunctionToken = async (
   getToken: (options?: { template?: string }) => Promise<string | null>
 ): Promise<string | null> => {
+  const defaultToken = await getToken();
+  if (defaultToken) {
+    return defaultToken;
+  }
+
   if (!CLERK_SUPABASE_TEMPLATE) {
-    return getToken();
+    return null;
   }
 
   try {
-    const templateToken = await getToken({ template: CLERK_SUPABASE_TEMPLATE });
-    if (templateToken) {
-      return templateToken;
-    }
+    return await getToken({ template: CLERK_SUPABASE_TEMPLATE });
   } catch (error) {
     console.warn(
-      `Failed to fetch Clerk token using template "${CLERK_SUPABASE_TEMPLATE}". Falling back to default token.`,
+      `Failed to fetch Clerk token using template "${CLERK_SUPABASE_TEMPLATE}".`,
       error
     );
+    return null;
   }
-
-  return getToken();
 };
 
 
@@ -80,7 +81,7 @@ export const useCreateBooking = () => {
 
   return useMutation({
     mutationFn: async (data: CreateBookingRequest): Promise<CreateBookingResponse> => {
-      const token = (await getToken({ template: 'supabase' })) ?? (await getToken());
+      const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in and try again.');
       }
@@ -119,7 +120,7 @@ export const useVerifyPayment = () => {
 
   return useMutation({
     mutationFn: async (data: VerifyPaymentRequest) => {
-      const token = (await getToken({ template: 'supabase' })) ?? (await getToken());
+      const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in and try again.');
       }
@@ -158,7 +159,7 @@ export const useUserBookings = () => {
   return useQuery({
     queryKey: ['userBookings'],
     queryFn: async (): Promise<FormattedBooking[]> => {
-      const token = (await getToken({ template: 'supabase' })) ?? (await getToken());
+      const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in to view bookings.');
       }
