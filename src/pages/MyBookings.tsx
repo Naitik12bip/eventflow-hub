@@ -102,50 +102,52 @@
                  key={booking.id}
                  className="glass-strong rounded-2xl p-6 hover:border-primary/30 transition-all"
                >
-                 <div className="flex flex-col md:flex-row gap-4">
-                   {/* Poster */}
-                   <img
-                     src={booking.posterUrl}
-                     alt={booking.movieTitle}
-                     className="w-24 h-32 rounded-lg object-cover flex-shrink-0"
-                   />
- 
-                   {/* Details */}
-                   <div className="flex-1 space-y-3">
-                     <div className="flex flex-wrap items-start justify-between gap-2">
-                       <h3 className="font-display text-xl font-bold text-foreground">
-                         {booking.movieTitle}
-                       </h3>
-                       <Badge
-                         className={
-                           booking.status === 'confirmed'
-                             ? 'bg-success/20 text-success border-success/30'
-                             : booking.status === 'pending'
-                             ? 'bg-amber-500/20 text-amber-500 border-amber-500/30'
-                             : 'bg-destructive/20 text-destructive border-destructive/30'
-                         }
-                       >
-                         {booking.status === 'confirmed' && (
-                           <CheckCircle className="w-3 h-3 mr-1" />
-                         )}
-                         {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                       </Badge>
-                     </div>
- 
-                     <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                       <div className="flex items-center gap-2">
-                         <Calendar className="w-4 h-4" />
-                         <span>{booking.formattedDate}</span>
-                       </div>
-                       <div className="flex items-center gap-2">
-                         <Clock className="w-4 h-4" />
-                         <span>{booking.formattedTime}</span>
-                       </div>
-                       <div className="flex items-center gap-2">
-                         <MapPin className="w-4 h-4" />
-                         <span>Cinema Hall</span>
-                       </div>
-                     </div>
+                <div className="flex flex-col md:flex-row gap-4">
+                    {/* Poster */}
+                    <img
+                      src={booking.eventImage}
+                      alt={booking.eventTitle}
+                      className="w-24 h-32 rounded-lg object-cover flex-shrink-0"
+                    />
+
+                    {/* Details */}
+                    <div className="flex-1 space-y-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <h3 className="font-display text-xl font-bold text-foreground">
+                          {booking.eventTitle}
+                        </h3>
+                        <Badge
+                          className={
+                            booking.status === 'confirmed'
+                              ? 'bg-success/20 text-success border-success/30'
+                              : booking.status === 'pending'
+                              ? 'bg-amber-500/20 text-amber-500 border-amber-500/30'
+                              : 'bg-destructive/20 text-destructive border-destructive/30'
+                          }
+                        >
+                          {booking.status === 'confirmed' && (
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                          )}
+                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        </Badge>
+                      </div>
+
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4" />
+                          <span>{new Date(booking.eventDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        {booking.eventTime && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span>{booking.eventTime}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4" />
+                          <span>{booking.venue}{booking.city ? `, ${booking.city}` : ''}</span>
+                        </div>
+                      </div>
  
                      <div className="flex flex-wrap justify-between items-end gap-4 pt-2 border-t border-border/50">
                        <div>
