@@ -1,5 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
+
+
+const CLERK_SUPABASE_TEMPLATE = import.meta.env.VITE_CLERK_SUPABASE_JWT_TEMPLATE;
+
+const getEdgeFunctionToken = async (
+  getToken: (options?: { template?: string }) => Promise<string | null>
+): Promise<string | null> => {
+  if (!CLERK_SUPABASE_TEMPLATE) {
+    return getToken();
+  }
+
+  try {
+    const templateToken = await getToken({ template: CLERK_SUPABASE_TEMPLATE });
+    if (templateToken) {
+      return templateToken;
+    }
+  } catch (error) {
+    console.warn(
+      `Failed to fetch Clerk token using template "${CLERK_SUPABASE_TEMPLATE}". Falling back to default token.`,
+      error
+    );
+  }
+
+  return getToken();
+};
+
 
 // Types for booking operations
 interface CreateBookingRequest {
@@ -49,12 +76,23 @@ export interface FormattedBooking {
 // Create a booking and get Razorpay order
 export const useCreateBooking = () => {
   const queryClient = useQueryClient();
+  const { getToken } = useAuth();
 
   return useMutation({
     mutationFn: async (data: CreateBookingRequest): Promise<CreateBookingResponse> => {
+      const token = (await getToken({ template: 'supabase' })) ?? (await getToken());
+      if (!token) {
+        throw new Error('Authentication required. Please sign in and try again.');
+      }
+
       const { data: responseData, error } = await supabase.functions.invoke(
         'create-razorpay-order',
-        { body: data }
+        {
+          body: data,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (error) {
@@ -77,12 +115,22 @@ export const useCreateBooking = () => {
 // Verify payment after Razorpay checkout
 export const useVerifyPayment = () => {
   const queryClient = useQueryClient();
+  const { getToken } = useAuth();
 
   return useMutation({
     mutationFn: async (data: VerifyPaymentRequest) => {
+      const token = (await getToken({ template: 'supabase' })) ?? (await getToken());
+      if (!token) {
+        throw new Error('Authentication required. Please sign in and try again.');
+      }
       const { data: responseData, error } = await supabase.functions.invoke(
         'verify-razorpay-payment',
-        { body: data }
+        {
+          body: data,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (error) {
@@ -105,11 +153,23 @@ export const useVerifyPayment = () => {
 
 // Fetch user's bookings from database via edge function
 export const useUserBookings = () => {
+  const { getToken } = useAuth();
+
   return useQuery({
     queryKey: ['userBookings'],
     queryFn: async (): Promise<FormattedBooking[]> => {
+      const token = (await getToken({ template: 'supabase' })) ?? (await getToken());
+      if (!token) {
+        throw new Error('Authentication required. Please sign in to view bookings.');
+      }
+
       const { data: responseData, error } = await supabase.functions.invoke(
-        'get-user-bookings'
+        'get-user-bookings',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (error) {
