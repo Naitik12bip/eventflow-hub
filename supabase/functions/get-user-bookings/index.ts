@@ -1,0 +1,178 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate user via Supabase Auth
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims) {
+      console.error("Auth error:", claimsError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+    console.log("Fetching bookings for user:", userId);
+
+    // Use service role to query across tables
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Fetch bookings with event details
+    const { data: bookings, error: bookingsError } = await supabaseAdmin
+      .from("bookings")
+      .select(`
+        id,
+        event_id,
+        total_amount,
+        convenience_fee,
+        status,
+        booking_date,
+        created_at,
+        events (
+          id,
+          title,
+          venue,
+          city,
+          event_date,
+          event_time,
+          image_url,
+          category,
+          genre,
+          duration
+        )
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (bookingsError) {
+      console.error("Failed to fetch bookings:", bookingsError);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch bookings" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch tickets for each booking to get seat info
+    const bookingIds = (bookings || []).map((b: any) => b.id);
+
+    let ticketsMap: Record<string, any[]> = {};
+
+    if (bookingIds.length > 0) {
+      const { data: tickets, error: ticketsError } = await supabaseAdmin
+        .from("tickets")
+        .select(`
+          id,
+          booking_id,
+          seat_id,
+          price,
+          qr_code,
+          seats (
+            seat_row,
+            seat_number,
+            seat_type
+          )
+        `)
+        .in("booking_id", bookingIds);
+
+      if (!ticketsError && tickets) {
+        for (const ticket of tickets) {
+          if (!ticketsMap[ticket.booking_id]) {
+            ticketsMap[ticket.booking_id] = [];
+          }
+          ticketsMap[ticket.booking_id].push(ticket);
+        }
+      }
+    }
+
+    // Fetch payment info
+    let paymentsMap: Record<string, any> = {};
+
+    if (bookingIds.length > 0) {
+      const { data: payments, error: paymentsError } = await supabaseAdmin
+        .from("payments")
+        .select("booking_id, razorpay_payment_id, amount, status, payment_date")
+        .in("booking_id", bookingIds);
+
+      if (!paymentsError && payments) {
+        for (const payment of payments) {
+          paymentsMap[payment.booking_id] = payment;
+        }
+      }
+    }
+
+    // Format response
+    const formattedBookings = (bookings || []).map((booking: any) => {
+      const event = booking.events;
+      const tickets = ticketsMap[booking.id] || [];
+      const payment = paymentsMap[booking.id];
+
+      const seats = tickets.map((t: any) => {
+        const seat = t.seats;
+        return seat ? `${seat.seat_row}${seat.seat_number}` : "N/A";
+      });
+
+      return {
+        id: booking.id,
+        eventTitle: event?.title || "Unknown Event",
+        eventImage: event?.image_url || "/placeholder.svg",
+        venue: event?.venue || "Unknown Venue",
+        city: event?.city || "",
+        eventDate: event?.event_date || booking.booking_date,
+        eventTime: event?.event_time || "",
+        category: event?.category || "",
+        genre: event?.genre || "",
+        duration: event?.duration || "",
+        seats,
+        ticketCount: tickets.length || 0,
+        totalAmount: booking.total_amount,
+        convenienceFee: booking.convenience_fee,
+        status: booking.status,
+        paymentStatus: payment?.status || "unknown",
+        paymentId: payment?.razorpay_payment_id || null,
+        bookingDate: booking.created_at,
+      };
+    });
+
+    return new Response(
+      JSON.stringify({ success: true, bookings: formattedBookings }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error in get-user-bookings:", error);
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
