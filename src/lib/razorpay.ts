@@ -1,6 +1,4 @@
- // Razorpay Key ID from environment
- const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || '';
- 
+// Razorpay Key ID - passed from edge function response at runtime
  // Declare Razorpay on window
  declare global {
    interface Window {
@@ -40,11 +38,12 @@
    razorpay_signature: string;
  }
  
- export interface RazorpayOrderData {
-   orderId: string;
-   amount: number;
-   currency: string;
- }
+export interface RazorpayOrderData {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+}
  
  // Load Razorpay script dynamically
  export const loadRazorpayScript = (): Promise<boolean> => {
@@ -76,7 +75,7 @@
    }
  
    const options: RazorpayOptions = {
-     key: RAZORPAY_KEY_ID,
+     key: orderData.keyId,
      amount: orderData.amount,
      currency: orderData.currency,
      name: 'EventHub',
