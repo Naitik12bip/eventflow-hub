@@ -34,20 +34,16 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client with user's token
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-
-    // Validate user
+    // Decode Clerk JWT to get user ID
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth
-      .getClaims(token);
-
-    if (claimsError || !claimsData?.claims) {
-      console.error("Auth error:", claimsError);
+    let userId: string;
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const payload = JSON.parse(atob(payloadBase64));
+      userId = payload.sub;
+      if (!userId) throw new Error("No sub claim in token");
+    } catch (e) {
+      console.error("JWT decode error:", e);
       return new Response(
         JSON.stringify({ error: "Unauthorized - Invalid token" }),
         {
@@ -56,8 +52,6 @@ serve(async (req) => {
         },
       );
     }
-
-    const userId = claimsData.claims.sub;
     console.log("Authenticated user:", userId);
 
     // Parse request body
