@@ -15,7 +15,7 @@ export const EventCard = ({ event, variant = 'default' }: EventCardProps) => {
 
   return (
     <Link
-      to={`/event/${event.id}`}
+      to={`/events/${event.id}`}
       className={cn(
         'group block card-interactive rounded-xl overflow-hidden',
         isFeatured && 'lg:flex lg:h-80'

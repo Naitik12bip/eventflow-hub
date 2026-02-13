@@ -86,7 +86,7 @@ export const HeroSection = () => {
                 {formatPrice(currentEvent.price.min)}
               </p>
             </div>
-            <Link to={`/event/${currentEvent.id}`}>
+            <Link to={`/events/${currentEvent.id}`}>
               <Button className="btn-primary h-14 px-8 text-lg">
                 <Play className="w-5 h-5 mr-2" />
                 Book Tickets

@@ -51,7 +51,7 @@ const CommunityEvents = () => {
           {freeEvents.map((event) => (
             <Link
               key={event.id}
-              to={`/event/${event.id}`}
+              to={`/events/${event.id}`}
               className="group rounded-xl overflow-hidden bg-card hover:shadow-xl transition"
             >
               <div className="aspect-[2/3] overflow-hidden">
