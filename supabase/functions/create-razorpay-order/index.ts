@@ -15,46 +15,41 @@ interface CreateOrderRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Get auth header
     const authHeader = req.headers.get("Authorization");
+
     if (!authHeader?.startsWith("Bearer ")) {
       console.error("No authorization header provided");
       return new Response(
         JSON.stringify({ error: "Unauthorized - No token provided" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Decode Clerk JWT to get user ID
+    // Decode Clerk JWT
     const token = authHeader.replace("Bearer ", "");
     let userId: string;
+
     try {
       const payloadBase64 = token.split(".")[1];
       const payload = JSON.parse(atob(payloadBase64));
       userId = payload.sub;
+
       if (!userId) throw new Error("No sub claim in token");
     } catch (e) {
       console.error("JWT decode error:", e);
       return new Response(
         JSON.stringify({ error: "Unauthorized - Invalid token" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
     console.log("Authenticated user:", userId);
 
-    // Parse request body
     const body: CreateOrderRequest = await req.json();
     const { eventId, showId, seatIds, ticketPrice } = body;
 
@@ -65,28 +60,27 @@ serve(async (req) => {
       ticketPrice,
     });
 
-    // Validate input
+    // ✅ Improved validation
     if (
-      !eventId || !showId || !seatIds || seatIds.length === 0 || !ticketPrice
+      !eventId ||
+      !showId ||
+      !seatIds ||
+      seatIds.length === 0 ||
+      ticketPrice == null
     ) {
       return new Response(
         JSON.stringify({
-          error:
-            "Missing required fields: eventId, showId, seatIds, ticketPrice",
+          error: "Missing required fields: eventId, showId, seatIds, ticketPrice",
         }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Calculate total amount server-side (never trust frontend prices)
     const quantity = seatIds.length;
     const subtotal = ticketPrice * quantity;
     const convenienceFee = Math.round(subtotal * 0.05);
     const totalAmount = subtotal + convenienceFee;
-    const amountInPaise = totalAmount * 100; // Razorpay expects amount in paise
+    const amountInPaise = totalAmount * 100;
 
     console.log("Calculated amounts:", {
       quantity,
@@ -96,7 +90,6 @@ serve(async (req) => {
       amountInPaise,
     });
 
-    // Get Razorpay credentials
     const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID");
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
 
@@ -104,15 +97,12 @@ serve(async (req) => {
       console.error("Razorpay credentials not configured");
       return new Response(
         JSON.stringify({ error: "Payment gateway not configured" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Create Razorpay order
     const razorpayAuth = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
+
     const razorpayResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -137,23 +127,36 @@ serve(async (req) => {
       console.error("Razorpay order creation failed:", errorText);
       return new Response(
         JSON.stringify({ error: "Failed to create payment order" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const razorpayOrder = await razorpayResponse.json();
     console.log("Razorpay order created:", razorpayOrder.id);
 
-    // Use service role for database operations
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // ✅ Safe ENV validation
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    // Create pending booking in database
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("❌ Missing Supabase ENV variables");
+      return new Response(
+        JSON.stringify({ error: "Server misconfiguration" }),
+        { status: 500, headers: corsHeaders },
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+    // ✅ Log payload (helps debugging NOT NULL errors)
+    console.log("Booking payload:", {
+      user_id: userId,
+      event_id: eventId,
+      total_amount: totalAmount,
+      convenience_fee: convenienceFee,
+      status: "pending",
+    });
+
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
       .insert({
@@ -166,36 +169,37 @@ serve(async (req) => {
       .select()
       .single();
 
+    // ✅ FIX 1 — REAL ERROR EXPOSURE
     if (bookingError) {
-      console.error("Failed to create booking:", bookingError);
+      console.error("❌ BOOKING INSERT FAILED:");
+      console.error("Message:", bookingError.message);
+      console.error("Details:", bookingError.details);
+      console.error("Hint:", bookingError.hint);
+      console.error("Code:", bookingError.code);
+
       return new Response(
-        JSON.stringify({ error: "Failed to create booking record" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        JSON.stringify({
+          error: "Failed to create booking record",
+          debug: bookingError,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     console.log("Booking created:", booking.id);
 
-    // Create pending payment record
-    const { error: paymentError } = await supabaseAdmin.from("payments").insert(
-      {
-        user_id: userId,
-        booking_id: booking.id,
-        razorpay_order_id: razorpayOrder.id,
-        amount: totalAmount,
-        status: "pending",
-      },
-    );
+    const { error: paymentError } = await supabaseAdmin.from("payments").insert({
+      user_id: userId,
+      booking_id: booking.id,
+      razorpay_order_id: razorpayOrder.id,
+      amount: totalAmount,
+      status: "pending",
+    });
 
     if (paymentError) {
       console.error("Failed to create payment record:", paymentError);
-      // Don't fail the whole request, payment verification will handle this
     }
 
-    // Return order details to frontend
     return new Response(
       JSON.stringify({
         success: true,
@@ -203,12 +207,9 @@ serve(async (req) => {
         amount: amountInPaise,
         currency: "INR",
         bookingId: booking.id,
-        keyId: razorpayKeyId, // Send key ID for frontend checkout
+        keyId: razorpayKeyId,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Error in create-razorpay-order:", error);
@@ -218,10 +219,7 @@ serve(async (req) => {
         error: "Internal server error",
         details: error instanceof Error ? error.message : String(error),
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
