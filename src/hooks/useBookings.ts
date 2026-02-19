@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import  api  from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 
 const getEdgeFunctionToken = async (
   getToken: (options?: { template?: string }) => Promise<string | null>
@@ -72,17 +72,22 @@ export const useCreateBooking = () => {
         throw new Error('Authentication required. Please sign in and try again.');
       }
 
-      const response = await api.post('/payment/create-razorpay-order', data, {
+      const { data: response, error } = await supabase.functions.invoke('create-razorpay-order', {
+        body: data,
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Failed to create order');
+      if (error) {
+        throw new Error(error.message || 'Failed to create order');
       }
 
-      return response.data;
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to create order');
+      }
+
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userBookings'] });
@@ -102,17 +107,22 @@ export const useVerifyPayment = () => {
         throw new Error('Authentication required. Please sign in and try again.');
       }
 
-      const response = await api.post('/payment/verify-razorpay-payment', data, {
+      const { data: response, error } = await supabase.functions.invoke('verify-razorpay-payment', {
+        body: data,
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Payment verification failed');
+      if (error) {
+        throw new Error(error.message || 'Payment verification failed');
       }
 
-      return response.data;
+      if (!response?.success) {
+        throw new Error(response?.error || 'Payment verification failed');
+      }
+
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userBookings'] });
@@ -132,17 +142,21 @@ export const useUserBookings = () => {
         throw new Error('Authentication required. Please sign in and try again.');
       }
 
-      const response = await api.post('/user/get-user-bookings', {}, {
+      const { data: response, error } = await supabase.functions.invoke('get-user-bookings', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Failed to fetch bookings');
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch bookings');
       }
 
-      return response.data.bookings;
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to fetch bookings');
+      }
+
+      return response.bookings;
     },
     enabled: !!getToken,
   });
