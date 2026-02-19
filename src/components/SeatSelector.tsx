@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { cn } from '@/lib/utils';
-import { formatPrice } from '@/data/events';
+import { cn } from '@/lib/utils.ts';
+import { formatPrice } from '@/data/events.ts';
 
 interface Seat {
   id: string;
