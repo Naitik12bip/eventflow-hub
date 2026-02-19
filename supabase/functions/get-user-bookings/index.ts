@@ -7,6 +7,65 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface Booking {
+  id: string;
+  user_id: string;
+  event_id: string;
+  total_amount: number;
+  convenience_fee: number;
+  status: string;
+  booking_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Ticket {
+  id: string;
+  booking_id: string;
+  seat_id: string;
+  event_id: string;
+  user_id: string;
+  price: number;
+  qr_code: string;
+  created_at: string;
+}
+
+interface Payment {
+  id: string;
+  booking_id: string;
+  user_id: string;
+  amount: number;
+  status: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  payment_date: string;
+  created_at: string;
+}
+
+interface EventJoined {
+  title: string;
+  image_url: string;
+  event_date: string;
+  event_time: string;
+  venue: string;
+  city: string;
+}
+
+interface SeatJoined {
+  seat_row: string;
+  seat_number: number;
+  seat_type: string;
+}
+
+interface TicketJoined extends Ticket {
+  seats: SeatJoined;
+}
+
+interface BookingJoined extends Booking {
+  events: EventJoined;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -80,9 +139,9 @@ serve(async (req) => {
     }
 
     // Fetch tickets for each booking to get seat info
-    const bookingIds = (bookings || []).map((b: any) => b.id);
+    const bookingIds = (bookings || []).map((b: Booking) => b.id);
 
-    let ticketsMap: Record<string, any[]> = {};
+    const ticketsMap: Record<string, Ticket[]> = {};
 
     if (bookingIds.length > 0) {
       const { data: tickets, error: ticketsError } = await supabaseAdmin
@@ -112,7 +171,7 @@ serve(async (req) => {
     }
 
     // Fetch payment info
-    let paymentsMap: Record<string, any> = {};
+    const paymentsMap: Record<string, Payment> = {};
 
     if (bookingIds.length > 0) {
       const { data: payments, error: paymentsError } = await supabaseAdmin
@@ -128,12 +187,12 @@ serve(async (req) => {
     }
 
     // Format response
-    const formattedBookings = (bookings || []).map((booking: any) => {
+    const formattedBookings = (bookings || []).map((booking: BookingJoined) => {
       const event = booking.events;
       const tickets = ticketsMap[booking.id] || [];
       const payment = paymentsMap[booking.id];
 
-      const seats = tickets.map((t: any) => {
+      const seats = tickets.map((t: TicketJoined) => {
         const seat = t.seats;
         return seat ? `${seat.seat_row}${seat.seat_number}` : "N/A";
       });

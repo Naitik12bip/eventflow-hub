@@ -55,40 +55,34 @@ const generateSeats = (occupiedSeats: string[] = [], showPrice?: number): Seat[]
 };
 
 export const SeatSelector = ({ onSeatsChange, occupiedSeats = [], showPrice }: SeatSelectorProps) => {
+  console.log('SeatSelector rendered with occupiedSeats:', occupiedSeats, 'showPrice:', showPrice);
   const [seats, setSeats] = useState<Seat[]>(() => generateSeats(occupiedSeats, showPrice));
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
 
   // Update seats when occupiedSeats or showPrice changes
   useEffect(() => {
+    console.log('Updating seats due to occupiedSeats or showPrice change');
     setSeats(generateSeats(occupiedSeats, showPrice));
-    setSelectedSeats([]);
   }, [occupiedSeats, showPrice]);
 
   // ✅ FIXED: Call onSeatsChange AFTER render completes, not during render
   useEffect(() => {
+    console.log('Calling onSeatsChange with:', selectedSeats);
     onSeatsChange(selectedSeats);
   }, [selectedSeats, onSeatsChange]);
 
   const handleSeatClick = (seat: Seat) => {
+    console.log('Seat clicked:', seat.id);
     if (seat.status === 'reserved') return;
-
-    // Update seats display
-    setSeats((prev) =>
-      prev.map((s) => {
-        if (s.id === seat.id) {
-          const newStatus = s.status === 'selected' ? 'available' : 'selected';
-          return { ...s, status: newStatus };
-        }
-        return s;
-      })
-    );
 
     // Update selected seats - this triggers the useEffect above
     setSelectedSeats((prev) => {
       const exists = prev.find((s) => s.id === seat.id);
       if (exists) {
+        console.log('Removing seat from selected:', seat.id);
         return prev.filter((s) => s.id !== seat.id);
       } else {
+        console.log('Adding seat to selected:', seat.id);
         return [...prev, { ...seat, status: 'selected' as const }];
       }
     });
@@ -122,11 +116,11 @@ export const SeatSelector = ({ onSeatsChange, occupiedSeats = [], showPrice }: S
                     disabled={seat.status === 'reserved'}
                     className={cn(
                       'seat',
-                      seat.status === 'available' && seat.type === 'standard' && 'seat-available',
-                      seat.status === 'available' && seat.type === 'premium' && 'seat-available bg-secondary/30 hover:bg-secondary/60',
-                      seat.status === 'available' && seat.type === 'vip' && 'seat-vip hover:opacity-80',
-                      seat.status === 'selected' && 'seat-selected',
-                      seat.status === 'reserved' && 'seat-reserved'
+                      seat.status === 'available' && !selectedSeats.some(s => s.id === seat.id) && 'seat-available',
+                      selectedSeats.some(s => s.id === seat.id) && 'seat-selected',
+                      seat.status === 'reserved' && 'seat-reserved',
+                      seat.type === 'premium' && seat.status === 'available' && !selectedSeats.some(s => s.id === seat.id) && 'bg-secondary/30 hover:bg-secondary/60',
+                      seat.type === 'vip' && seat.status === 'available' && !selectedSeats.some(s => s.id === seat.id) && 'seat-vip hover:opacity-80'
                     )}
                     title={`${seat.id} - ${formatPrice(seat.price)}`}
                   >

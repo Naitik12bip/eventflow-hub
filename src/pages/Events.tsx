@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useShows } from '@/hooks/useShows';
-import { EventCategory } from '@/data/events';
+import { useShows, ShowsQueryResult } from '@/hooks/useShows';
+import { Event, EventCategory } from '@/data/events';
 import { Link } from 'react-router-dom';
 import { Loader2, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,7 +15,7 @@ const categories: { label: string; value: EventCategory | 'all' }[] = [
 ];
 
 interface ShowsResponse {
-  events: any[]; // Replace 'any' with your actual Event type if possible
+  events: Event[];
   isFallbackData: boolean;
 }
 
@@ -23,8 +23,8 @@ const Events = () => {
   const { data, isLoading } = useShows();
   const [activeCategory, setActiveCategory] = useState<'all' | EventCategory>('all');
 
-  const events = (data as any)?.events ?? [];
-  const isShowingDemoData = (data as any)?.isFallbackData ?? false;
+  const events = data?.events ?? [];
+  const isShowingDemoData = data?.isFallbackData ?? false;
 
   const filteredEvents =
     activeCategory === 'all'

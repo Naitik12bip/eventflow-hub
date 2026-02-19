@@ -14,6 +14,15 @@ interface CreateOrderRequest {
   ticketPrice: number;
 }
 
+interface BookingInsert {
+  user_id: string;
+  event_id: string;
+  total_amount: number;
+  convenience_fee: number;
+  status: string;
+  show_id?: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -127,7 +136,7 @@ serve(async (req) => {
       .limit(1);
 
     // Build insert object dynamically based on existing schema
-    const bookingInsert: any = {
+    const bookingInsert: BookingInsert = {
       user_id: userId,
       event_id: eventId,
       total_amount: totalAmount,
