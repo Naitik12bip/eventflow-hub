@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
-import { supabase } from '@/integrations/supabase/client';
-
-
-const CLERK_SUPABASE_TEMPLATE = import.meta.env.VITE_CLERK_SUPABASE_JWT_TEMPLATE;
+import  api  from '@/lib/api';
 
 const getEdgeFunctionToken = async (
   getToken: (options?: { template?: string }) => Promise<string | null>
@@ -13,21 +10,8 @@ const getEdgeFunctionToken = async (
     return defaultToken;
   }
 
-  if (!CLERK_SUPABASE_TEMPLATE) {
-    return null;
-  }
-
-  try {
-    return await getToken({ template: CLERK_SUPABASE_TEMPLATE });
-  } catch (error) {
-    console.warn(
-      `Failed to fetch Clerk token using template "${CLERK_SUPABASE_TEMPLATE}".`,
-      error
-    );
-    return null;
-  }
+  return null;
 };
-
 
 // Types for booking operations
 interface CreateBookingRequest {
@@ -38,40 +22,42 @@ interface CreateBookingRequest {
 }
 
 interface CreateBookingResponse {
-  success: boolean;
   orderId: string;
   amount: number;
   currency: string;
-  bookingId: string;
-  keyId: string;
 }
 
 interface VerifyPaymentRequest {
-  razorpay_payment_id: string;
-  razorpay_order_id: string;
-  razorpay_signature: string;
-  bookingId: string;
+  orderId: string;
+  paymentId: string;
+  signature: string;
+  userId: string;
+  showId: string;
+  seatIds: string[];
+}
+
+interface VerifyPaymentResponse {
+  message: string;
 }
 
 export interface FormattedBooking {
   id: string;
-  eventTitle: string;
-  eventImage: string;
-  venue: string;
-  city: string;
-  eventDate: string;
-  eventTime: string;
-  category: string;
-  genre: string;
-  duration: string;
-  seats: string[];
-  ticketCount: number;
-  totalAmount: number;
-  convenienceFee: number;
-  status: string;
-  paymentStatus: string;
-  paymentId: string | null;
-  bookingDate: string;
+  userId: string;
+  showId: string;
+  seatIds: string[];
+  amount: number;
+  isPaid: boolean;
+  createdAt: string;
+  show: {
+    _id: string;
+    movie: {
+      _id: string;
+      title: string;
+      poster_path: string;
+    };
+    showDateTime: string;
+    showPrice: number;
+  };
 }
 
 // Create a booking and get Razorpay order
@@ -86,73 +72,55 @@ export const useCreateBooking = () => {
         throw new Error('Authentication required. Please sign in and try again.');
       }
 
-      const { data: responseData, error } = await supabase.functions.invoke(
-        'create-razorpay-order',
-        {
-          body: data,
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.post('/payment/create-razorpay-order', data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (error) {
-        console.error('Create order error:', error);
-        throw new Error(error.message || 'Failed to create order');
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Failed to create order');
       }
 
-      if (!responseData?.success) {
-        throw new Error(responseData?.error || 'Failed to create order');
-      }
-
-      return responseData;
+      return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['occupiedSeats'] });
+      queryClient.invalidateQueries({ queryKey: ['userBookings'] });
     },
   });
 };
 
-// Verify payment after Razorpay checkout
+// Verify Razorpay payment
 export const useVerifyPayment = () => {
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
 
   return useMutation({
-    mutationFn: async (data: VerifyPaymentRequest) => {
+    mutationFn: async (data: VerifyPaymentRequest): Promise<VerifyPaymentResponse> => {
       const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in and try again.');
       }
-      const { data: responseData, error } = await supabase.functions.invoke(
-        'verify-razorpay-payment',
-        {
-          body: data,
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
 
-      if (error) {
-        console.error('Verify payment error:', error);
-        throw new Error(error.message || 'Payment verification failed');
+      const response = await api.post('/payment/verify-razorpay-payment', data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Payment verification failed');
       }
 
-      if (!responseData?.success) {
-        throw new Error(responseData?.error || 'Payment verification failed');
-      }
-
-      return responseData;
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userBookings'] });
-      queryClient.invalidateQueries({ queryKey: ['occupiedSeats'] });
     },
   });
 };
 
-// Fetch user's bookings from database via edge function
+// Get user bookings
 export const useUserBookings = () => {
   const { getToken } = useAuth();
 
@@ -161,29 +129,21 @@ export const useUserBookings = () => {
     queryFn: async (): Promise<FormattedBooking[]> => {
       const token = await getEdgeFunctionToken(getToken);
       if (!token) {
-        throw new Error('Authentication required. Please sign in to view bookings.');
+        throw new Error('Authentication required. Please sign in and try again.');
       }
 
-      const { data: responseData, error } = await supabase.functions.invoke(
-        'get-user-bookings',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.post('/user/get-user-bookings', {}, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (error) {
-        console.error('Fetch bookings error:', error);
-        throw new Error(error.message || 'Failed to fetch bookings');
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Failed to fetch bookings');
       }
 
-      if (!responseData?.success) {
-        throw new Error(responseData?.error || 'Failed to fetch bookings');
-      }
-
-      return responseData.bookings;
+      return response.data.bookings;
     },
-    staleTime: 2 * 60 * 1000,
+    enabled: !!getToken,
   });
 };

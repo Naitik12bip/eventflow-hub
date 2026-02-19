@@ -1,18 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { dummyOccupiedSeats } from '@/data/dummyData';
+import api from '@/lib/api';
 
-// Fetch occupied seats for a specific show using dummy data
+// Fetch occupied seats for a specific show
 export const useOccupiedSeats = (showId: string | undefined) => {
   return useQuery({
     queryKey: ['occupiedSeats', showId],
     queryFn: async () => {
       if (!showId) throw new Error('Show ID is required');
 
-      // Simulate network delay
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      const response = await api.get(`/booking/seats/${showId}`);
 
-      // Return dummy occupied seats
-      return dummyOccupiedSeats.show_default || [];
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to fetch occupied seats');
+      }
+
+      return response.data.occupiedSeats || [];
     },
     enabled: !!showId,
     staleTime: 30 * 1000,
