@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { formatPrice, formatDate } from '@/data/events';
@@ -39,8 +39,6 @@ const checkoutSchema = z.object({
     .transform((val) => val.replace(/[\s-]/g, ''))
     .refine((val) => /^\+?[1-9]\d{9,14}$/.test(val), 'Please enter a valid phone number'),
 });
-
-type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 interface BookingData {
   event: {
@@ -85,7 +83,7 @@ const Checkout = () => {
     }
   }, [navigate]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
