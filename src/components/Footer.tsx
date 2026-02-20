@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Ticket, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
 
 export const Footer = () => {
   return (
@@ -9,11 +9,9 @@ export const Footer = () => {
           {/* Brand */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <Ticket className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img src="/Logo1.png" alt="EventHub logo" className="w-10 h-10 object-contain" />
               <span className="font-display text-xl font-bold gradient-text">
-                EventHub
+                EVENTEASE
               </span>
             </Link>
             <p className="text-muted-foreground text-sm">
@@ -63,7 +61,7 @@ export const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-foreground mb-4">Contact Us</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>Email: support@eventhub.in</li>
+              <li>Email: support@eventease.in</li>
               <li>Phone: 1800-XXX-XXXX</li>
               <li>Mumbai, Maharashtra</li>
               <li>India</li>
@@ -73,10 +71,10 @@ export const Footer = () => {
 
         <div className="mt-12 pt-8 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-muted-foreground text-sm">
-            © 2024 EventHub. All rights reserved.
+            © 2024 EVENTEASE. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Razorpay_logo.svg/120px-Razorpay_logo.svg.png" alt="Razorpay" className="h-6 opacity-60" />
+            <img src="/Logo1.png" alt="EventHub logo" className="h-6 opacity-60" />
             <span className="text-muted-foreground text-sm">Secure Payments</span>
           </div>
         </div>

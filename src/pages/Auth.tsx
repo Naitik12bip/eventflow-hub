@@ -35,7 +35,7 @@
                <Ticket className="w-8 h-8 text-primary-foreground" />
              </div>
              <h1 className="font-display text-3xl font-bold text-foreground">
-               Welcome to EventHub
+               Welcome to EVENTEASE
              </h1>
              <p className="text-muted-foreground mt-2">
                Sign in to book your favorite events

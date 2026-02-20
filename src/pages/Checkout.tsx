@@ -359,8 +359,8 @@ const Checkout = () => {
               <div className="bg-muted/30 rounded-xl p-4 border border-border/50 mb-6">
                 <div className="flex items-center gap-3 mb-4">
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Razorpay_logo.svg/120px-Razorpay_logo.svg.png"
-                    alt="Razorpay"
+                    src="/Logo1.png"
+                    alt="EventHub logo"
                     className="h-6"
                   />
                   <span className="text-muted-foreground text-sm">Secure payments powered by Razorpay</span>

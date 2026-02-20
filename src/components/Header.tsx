@@ -110,11 +110,13 @@ export const Header = () => {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center glow transition-all duration-300 group-hover:scale-110">
-              <Ticket className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img
+              src="/Logo1.png"
+              alt="EventHub logo"
+              className="w-10 h-10 object-contain transition-all duration-300 group-hover:scale-110"
+            />
             <span className="font-display text-xl font-bold gradient-text hidden sm:block">
-              EventHub
+              EVENTEASE
             </span>
           </Link>
 

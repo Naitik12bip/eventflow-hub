@@ -78,7 +78,7 @@ export interface RazorpayOrderData {
      key: orderData.keyId,
      amount: orderData.amount,
      currency: orderData.currency,
-     name: 'EventHub',
+     name: 'EVENTEASE',
      description: `Tickets for ${movieTitle}`,
      order_id: orderData.orderId,
      handler: onSuccess,

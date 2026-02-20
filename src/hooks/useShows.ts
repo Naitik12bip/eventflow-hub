@@ -1,25 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Event, EventCategory } from '@/data/events';
 import { dummyShowsData, DummyShow } from '@/data/dummyData';
-
-// Backend show type (kept for reference)
-export interface BackendShow {
-  _id: string;
-  movieId: number;
-  showDateTime: string;
-  showPrice: number;
-  occupiedSeats: string[];
-  movie: {
-    id: number;
-    title: string;
-    overview: string;
-    poster_path: string | null;
-    vote_average: number;
-    runtime: number;
-    genres: { id: number; name: string }[];
-    release_date: string;
-  };
-}
+import { supabase } from '@/integrations/supabase/client';
+import { getTMDBImageUrl } from '@/lib/api';
 
 export interface ShowsQueryResult {
   events: Event[];
@@ -27,33 +10,60 @@ export interface ShowsQueryResult {
 }
 
 // Map dummy show to Event format
-const mapDummyShowToEvent = (show: DummyShow): Event => {
-  // Generate a show date in the next 7 days
-  const today = new Date();
-  const randomDays = Math.floor(Math.random() * 7);
-  const showDate = new Date(today);
-  showDate.setDate(showDate.getDate() + randomDays);
+interface MovieWithShows {
+  id: string;
+  title: string;
+  overview: string | null;
+  poster_path: string | null;
+  vote_average: number | null;
+  release_date: string | null;
+  shows: {
+    id: string;
+    show_date_time: string;
+    show_price: number;
+    occupied_seats: Record<string, boolean> | null;
+    total_seats: number;
+    theater_name: string;
+    location: string;
+  }[];
+}
+
+const mapMovieToEvent = (movie: MovieWithShows): Event => {
+  const firstUpcomingShow = movie.shows
+    .map((show) => ({ ...show, date: new Date(show.show_date_time) }))
+    .filter((show) => show.date.getTime() >= Date.now())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())[0];
+
+  const occupiedSeats = firstUpcomingShow?.occupied_seats
+    ? Object.keys(firstUpcomingShow.occupied_seats)
+    : [];
+  const totalSeats = firstUpcomingShow?.total_seats ?? 96;
+  const seatsAvailable = Math.max(totalSeats - occupiedSeats.length, 0);
 
   return {
-    id: show._id,
-    title: show.title,
-    description: show.overview,
+    id: movie.id,
+    title: movie.title,
+    description: movie.overview || 'No description available.',
     category: 'movies' as EventCategory,
-    venue: 'Cinema Hall',
-    city: 'Ahmedabad',
-    date: showDate.toISOString().split('T')[0],
-    time: '18:00',
-    image: show.poster_path,
+    venue: firstUpcomingShow?.theater_name || 'Cinema Hall',
+    city: firstUpcomingShow?.location || 'TBA',
+    date: firstUpcomingShow
+      ? firstUpcomingShow.date.toISOString().split('T')[0]
+      : (movie.release_date || new Date().toISOString().split('T')[0]),
+    time: firstUpcomingShow
+      ? firstUpcomingShow.date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+      : 'TBA',
+    image: getTMDBImageUrl(movie.poster_path),
     price: {
-      min: 150,
-      max: 350,
+      min: firstUpcomingShow?.show_price ?? 150,
+      max: firstUpcomingShow?.show_price ?? 150,
     },
-    rating: show.vote_average,
-    duration: `${show.runtime} min`,
-    featured: show.vote_average >= 7.0,
-    seatsAvailable: 90,
-    totalSeats: 96,
-    genre: show.genres?.[0]?.name || 'Movie',
+    rating: movie.vote_average ?? 0,
+    duration: '2h',
+    featured: (movie.vote_average ?? 0) >= 7.0,
+    seatsAvailable,
+    totalSeats,
+    genre: 'Movie',
   };
 };
 
@@ -63,17 +73,40 @@ export const useShows = () => {
     queryKey: ['shows'],
     queryFn: async () => {
       // Simulate a small delay for realistic loading state
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      const { data, error } = await supabase
+        .from('movies')
+        .select(`
+          id,
+          title,
+          overview,
+          poster_path,
+          vote_average,
+          release_date,
+          shows (
+            id,
+            show_date_time,
+            show_price,
+            occupied_seats,
+            total_seats,
+            theater_name,
+            location
+          )
+        `)
+        .order('vote_average', { ascending: false });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to load live shows');
+      }
 
       // Map dummy data to Event format
-      const mappedEvents = dummyShowsData.map(mapDummyShowToEvent);
+      const mappedEvents = ((data || []) as MovieWithShows[]).map(mapMovieToEvent);
 
       return {
         events: mappedEvents,
-        isFallbackData: true, // Always true since we're using dummy data
+        isFallbackData: false, // Always false since we're using dummy data
       };
     },
-    staleTime: Infinity, // Never stale since it's static data
-    gcTime: Infinity, // Keep in cache forever
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
 };
