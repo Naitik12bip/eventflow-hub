@@ -1,6 +1,6 @@
  import { useState, useMemo, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
- import { Search, Menu, X, Ticket, User, ShoppingCart, LogOut, History } from 'lucide-react';
+ import { Search, Menu, X, Ticket, User, ShoppingCart, LogOut, History, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -69,6 +69,11 @@ export const Header = () => {
              <Ticket className="w-4 h-4 mr-2" />
              My Favorites
            </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => navigate('/admin')}>
+            <Settings className="w-4 h-4 mr-2" />
+            Admin Panel
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
             <LogOut className="w-4 h-4 mr-2" />

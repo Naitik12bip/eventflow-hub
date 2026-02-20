@@ -42,22 +42,20 @@ interface VerifyPaymentResponse {
 
 export interface FormattedBooking {
   id: string;
-  userId: string;
-  showId: string;
-  seatIds: string[];
-  amount: number;
-  isPaid: boolean;
+  movieTitle: string;
+  moviePoster: string;
+  movieOverview: string;
+  theater: string;
+  location: string;
+  showDateTime: string;
+  selectedSeats: string[];
+  totalAmount: number;
+  convenienceFee: number;
+  totalPrice: number;
+  status: string;
+  paymentStatus: string;
+  razorpayPaymentId: string | null;
   createdAt: string;
-  show: {
-    _id: string;
-    movie: {
-      _id: string;
-      title: string;
-      poster_path: string;
-    };
-    showDateTime: string;
-    showPrice: number;
-  };
 }
 
 // Create a booking and get Razorpay order

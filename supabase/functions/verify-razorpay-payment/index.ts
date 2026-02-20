@@ -53,10 +53,10 @@ serve(async (req) => {
     const body: VerifyPaymentRequest = await req.json();
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature, bookingId } = body;
 
-    console.log("Verify payment request:", { razorpay_order_id, razorpay_payment_id, bookingId });
+    console.log("Verify payment request:", { razorpay_order_id, razorpay_payment_id, bookingId, userId });
 
-    // Validate input
-    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !bookingId) {
+    // Validate input - bookingId can be optional if payment is being verified without booking
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return new Response(
         JSON.stringify({ error: "Missing required payment details" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -90,11 +90,13 @@ serve(async (req) => {
     if (!isValidSignature) {
       console.error("Invalid payment signature");
 
-      // Update booking status to failed
-      await supabaseAdmin
-        .from("bookings")
-        .update({ status: "failed" })
-        .eq("id", bookingId);
+      // Update booking status to failed if bookingId exists
+      if (bookingId) {
+        await supabaseAdmin
+          .from("bookings")
+          .update({ status: "failed" })
+          .eq("id", bookingId);
+      }
 
       // Update payment status to failed
       await supabaseAdmin
@@ -111,14 +113,16 @@ serve(async (req) => {
     // Payment verified successfully!
     console.log("Payment verified successfully");
 
-    // Update booking status to confirmed
-    const { error: bookingUpdateError } = await supabaseAdmin
-      .from("bookings")
-      .update({ status: "confirmed" })
-      .eq("id", bookingId);
+    // Update booking status to confirmed if bookingId exists
+    if (bookingId) {
+      const { error: bookingUpdateError } = await supabaseAdmin
+        .from("bookings")
+        .update({ status: "confirmed" })
+        .eq("id", bookingId);
 
-    if (bookingUpdateError) {
-      console.error("Failed to update booking:", bookingUpdateError);
+      if (bookingUpdateError) {
+        console.error("Failed to update booking:", bookingUpdateError);
+      }
     }
 
     // Update payment record with payment details

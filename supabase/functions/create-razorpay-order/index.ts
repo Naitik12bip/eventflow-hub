@@ -16,11 +16,11 @@ interface CreateOrderRequest {
 
 interface BookingInsert {
   user_id: string;
-  event_id: string;
+  show_id: string;
+  selected_seats: string[];
   total_amount: number;
   convenience_fee: number;
   status: string;
-  show_id?: string;
 }
 
 serve(async (req) => {
@@ -128,29 +128,19 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // ==================== CREATE BOOKING RECORD - SAFE VERSION ====================
-    // First, check what columns exist in the bookings table
-    const { data: columns, error: schemaError } = await supabaseAdmin
-      .from('bookings')
-      .select('*')
-      .limit(1);
-
-    // Build insert object dynamically based on existing schema
+    // ==================== CREATE BOOKING RECORD ====================
+    // Build booking insert with the correct schema
     const bookingInsert: BookingInsert = {
       user_id: userId,
-      event_id: eventId,
+      show_id: showId,
+      selected_seats: seatIds,
       total_amount: totalAmount,
       convenience_fee: convenienceFee,
       status: "pending",
     };
 
-    // Only add show_id if the column exists (check from schema or try/catch)
-    try {
-      bookingInsert.show_id = showId;
-    } catch (e) {
-      console.log("show_id column might not exist, skipping");
-    }
-
+    console.log("Creating booking with:", bookingInsert);
+    
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
       .insert(bookingInsert)

@@ -12,6 +12,7 @@ import MyBookings from "./pages/MyBookings";
 import Favorites from "./pages/Favorites";
 import NotFound from "./pages/NotFound";
 import CommunityEvents from "./pages/CommunityEvents";
+import { Admin } from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/my-bookings" element={<MyBookings />} />
           <Route path="/favorites" element={<Favorites />} />
+          <Route path="/admin" element={<Admin />} />
           {/* Category routes - redirect to events with filter */}
           <Route path="/concerts" element={<Events />} />
           <Route path="/sports" element={<Events />} />

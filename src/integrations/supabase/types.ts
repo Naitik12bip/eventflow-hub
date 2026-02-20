@@ -16,33 +16,33 @@ export type Database = {
     Tables: {
       bookings: {
         Row: {
-          booking_date: string
           convenience_fee: number
           created_at: string
-          event_id: string
           id: string
+          selected_seats: string[]
+          show_id: string
           status: string
           total_amount: number
           updated_at: string
           user_id: string
         }
         Insert: {
-          booking_date?: string
           convenience_fee?: number
           created_at?: string
-          event_id: string
           id?: string
+          selected_seats: string[]
+          show_id: string
           status?: string
           total_amount: number
           updated_at?: string
           user_id: string
         }
         Update: {
-          booking_date?: string
           convenience_fee?: number
           created_at?: string
-          event_id?: string
           id?: string
+          selected_seats?: string[]
+          show_id?: string
           status?: string
           total_amount?: number
           updated_at?: string
@@ -50,90 +50,79 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "bookings_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "bookings_show_id_fkey"
+            columns: ["show_id"]
             isOneToOne: false
-            referencedRelation: "events"
+            referencedRelation: "shows"
             referencedColumns: ["id"]
           },
         ]
       }
-      events: {
+      favorites: {
         Row: {
-          category: string
-          city: string
           created_at: string
-          description: string | null
-          duration: string | null
-          event_date: string
-          event_time: string
-          genre: string | null
           id: string
-          image_url: string | null
-          is_featured: boolean | null
-          is_public: boolean | null
-          price_max: number
-          price_min: number
-          rating: number | null
-          seats_available: number | null
-          title: string
-          total_seats: number | null
-          updated_at: string
-          venue: string
+          movie_id: string
+          user_id: string
         }
         Insert: {
-          category: string
-          city: string
           created_at?: string
-          description?: string | null
-          duration?: string | null
-          event_date: string
-          event_time: string
-          genre?: string | null
           id?: string
-          image_url?: string | null
-          is_featured?: boolean | null
-          is_public?: boolean | null
-          price_max?: number
-          price_min?: number
-          rating?: number | null
-          seats_available?: number | null
-          title: string
-          total_seats?: number | null
-          updated_at?: string
-          venue: string
+          movie_id: string
+          user_id: string
         }
         Update: {
-          category?: string
-          city?: string
           created_at?: string
-          description?: string | null
-          duration?: string | null
-          event_date?: string
-          event_time?: string
-          genre?: string | null
           id?: string
-          image_url?: string | null
-          is_featured?: boolean | null
-          is_public?: boolean | null
-          price_max?: number
-          price_min?: number
-          rating?: number | null
-          seats_available?: number | null
+          movie_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movies: {
+        Row: {
+          created_at: string
+          id: string
+          overview: string | null
+          poster_path: string | null
+          release_date: string | null
+          title: string
+          vote_average: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          overview?: string | null
+          poster_path?: string | null
+          release_date?: string | null
+          title: string
+          vote_average?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          overview?: string | null
+          poster_path?: string | null
+          release_date?: string | null
           title?: string
-          total_seats?: number | null
-          updated_at?: string
-          venue?: string
+          vote_average?: number | null
         }
         Relationships: []
       }
       payments: {
         Row: {
           amount: number
-          booking_id: string
+          booking_id: string | null
           created_at: string
           id: string
-          payment_date: string | null
           razorpay_order_id: string | null
           razorpay_payment_id: string | null
           razorpay_signature: string | null
@@ -142,10 +131,9 @@ export type Database = {
         }
         Insert: {
           amount: number
-          booking_id: string
+          booking_id?: string | null
           created_at?: string
           id?: string
-          payment_date?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
@@ -154,10 +142,9 @@ export type Database = {
         }
         Update: {
           amount?: number
-          booking_id?: string
+          booking_id?: string | null
           created_at?: string
           id?: string
-          payment_date?: string | null
           razorpay_order_id?: string | null
           razorpay_payment_id?: string | null
           razorpay_signature?: string | null
@@ -204,104 +191,49 @@ export type Database = {
         }
         Relationships: []
       }
-      seats: {
+      shows: {
         Row: {
-          booked_at: string | null
-          booked_by_user: string | null
           created_at: string
-          event_id: string
           id: string
-          is_booked: boolean | null
-          price: number
-          seat_number: number
-          seat_row: string
-          seat_type: string
+          location: string
+          movie_id: string
+          occupied_seats: Record<string, boolean> | null
+          show_date_time: string
+          show_price: number
+          theater_name: string
+          total_seats: number
+          updated_at: string
         }
         Insert: {
-          booked_at?: string | null
-          booked_by_user?: string | null
           created_at?: string
-          event_id: string
           id?: string
-          is_booked?: boolean | null
-          price?: number
-          seat_number: number
-          seat_row: string
-          seat_type?: string
+          location: string
+          movie_id: string
+          occupied_seats?: Record<string, boolean> | null
+          show_date_time: string
+          show_price: number
+          theater_name: string
+          total_seats?: number
+          updated_at?: string
         }
         Update: {
-          booked_at?: string | null
-          booked_by_user?: string | null
           created_at?: string
-          event_id?: string
           id?: string
-          is_booked?: boolean | null
-          price?: number
-          seat_number?: number
-          seat_row?: string
-          seat_type?: string
+          location?: string
+          movie_id?: string
+          occupied_seats?: Record<string, boolean> | null
+          show_date_time?: string
+          show_price?: number
+          theater_name?: string
+          total_seats?: number
+          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "seats_event_id_fkey"
-            columns: ["event_id"]
+            foreignKeyName: "shows_movie_id_fkey"
+            columns: ["movie_id"]
             isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      tickets: {
-        Row: {
-          booking_id: string
-          created_at: string
-          event_id: string
-          id: string
-          price: number
-          qr_code: string | null
-          seat_id: string
-          user_id: string
-        }
-        Insert: {
-          booking_id: string
-          created_at?: string
-          event_id: string
-          id?: string
-          price: number
-          qr_code?: string | null
-          seat_id: string
-          user_id: string
-        }
-        Update: {
-          booking_id?: string
-          created_at?: string
-          event_id?: string
-          id?: string
-          price?: number
-          qr_code?: string | null
-          seat_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tickets_booking_id_fkey"
-            columns: ["booking_id"]
-            isOneToOne: false
-            referencedRelation: "bookings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_seat_id_fkey"
-            columns: ["seat_id"]
-            isOneToOne: false
-            referencedRelation: "seats"
+            referencedRelation: "movies"
             referencedColumns: ["id"]
           },
         ]

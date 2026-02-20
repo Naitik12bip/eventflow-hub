@@ -81,35 +81,36 @@
    try {
      // Get authorization header
      const authHeader = req.headers.get('Authorization');
-     if (!authHeader) {
-       console.error('Missing authorization header');
+     if (!authHeader?.startsWith('Bearer ')) {
+       console.error('Missing or invalid authorization header');
        return new Response(
          JSON.stringify({ error: 'Authentication required' }),
          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
        );
      }
- 
-     // Create Supabase client with user's auth token
-     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-       global: { headers: { Authorization: authHeader } }
-     });
- 
-     // Verify user is authenticated
-     const { data: { user }, error: authError } = await supabase.auth.getUser();
-     if (authError || !user) {
-       console.error('Auth error:', authError);
+
+     // Decode Clerk JWT to get user ID
+     const token = authHeader.replace('Bearer ', '');
+     let userId: string;
+     try {
+       const payloadBase64 = token.split('.')[1];
+       const payload = JSON.parse(atob(payloadBase64));
+       userId = payload.sub;
+       if (!userId) throw new Error('No sub claim in token');
+     } catch (e) {
+       console.error('JWT decode error:', e);
        return new Response(
          JSON.stringify({ error: 'Invalid authentication' }),
          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
        );
      }
- 
-     console.log('Processing booking for user:', user.id);
- 
-     // Parse and validate request body
-     const body: BookingRequest = await req.json();
+
+     console.log('Processing booking for user:', userId);
+
+     // Create Supabase client with service role for database operations
+     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+     const supabase = createClient(supabaseUrl, supabaseServiceKey);
      
      // Validate all inputs
      const nameValidation = validateName(body.name);
@@ -235,7 +236,7 @@
      const { data: booking, error: bookingError } = await adminSupabase
        .from('bookings')
        .insert({
-         user_id: user.id,
+         user_id: userId,
          event_id: body.eventId,
          total_amount: totalAmount,
          convenience_fee: convenienceFee,
@@ -257,7 +258,7 @@
        .from('seats')
        .update({
          is_booked: true,
-         booked_by_user: user.id,
+         booked_by_user: userId,
          booked_at: new Date().toISOString()
        })
        .in('id', body.seatIds);
@@ -277,7 +278,7 @@
        booking_id: booking.id,
        event_id: body.eventId,
        seat_id: seat.id,
-       user_id: user.id,
+       user_id: userId,
        price: seat.price,
        qr_code: `TKT-${booking.id.slice(0, 8)}-${seat.id.slice(0, 8)}`
      }));
@@ -296,7 +297,7 @@
        .from('payments')
        .insert({
          booking_id: booking.id,
-         user_id: user.id,
+         user_id: userId,
          amount: totalAmount,
          status: 'completed',
          payment_date: new Date().toISOString()
@@ -314,7 +315,7 @@
          email: body.email.trim().toLowerCase(),
          phone: body.phone.replace(/[\s-]/g, '')
        })
-       .eq('user_id', user.id);
+       .eq('user_id', userId);
  
      console.log('Booking completed successfully:', booking.id);
  
