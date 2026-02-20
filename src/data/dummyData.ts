@@ -1,83 +1,83 @@
 // Dummy data for the application - replaces live API calls
 
-// export const dummyCastsData = [
-//   { name: "Milla Jovovich", profile_path: "https://image.tmdb.org/t/p/original/usWnHCzbADijULREZYSJ0qfM00y.jpg" },
-//   { name: "Dave Bautista", profile_path: "https://image.tmdb.org/t/p/original/snk6JiXOOoRjPtHU5VMoy6qbd32.jpg" },
-//   { name: "Arly Jover", profile_path: "https://image.tmdb.org/t/p/original/zmznPrQ9GSZwcOIUT0c3GyETwrP.jpg" },
-//   { name: "Amara Okereke", profile_path: "https://image.tmdb.org/t/p/original/nTSPtzWu6deZTJtWXHUpACVznY4.jpg" },
-//   { name: "Fraser James", profile_path: "https://image.tmdb.org/t/p/original/mGAPQG2OKTgdKFkp9YpvCSqcbgY.jpg" },
-//   { name: "Deirdre Mullins", profile_path: "https://image.tmdb.org/t/p/original/lJm89neuiVlYISEqNpGZA5kTAnP.jpg" },
-//   { name: "Sebastian Stankiewicz", profile_path: "https://image.tmdb.org/t/p/original/hLN0Ca09KwQOFLZLPIEzgTIbqqg.jpg" },
-//   { name: "Tue Lunding", profile_path: "https://image.tmdb.org/t/p/original/qY4W0zfGBYzlCyCC0QDJS1Muoa0.jpg" },
-//   { name: "Jacek Dzisiewicz", profile_path: "https://image.tmdb.org/t/p/original/6Ksb8ANhhoWWGnlM6O1qrySd7e1.jpg" },
-//   { name: "Ian Hanmore", profile_path: "https://image.tmdb.org/t/p/original/yhI4MK5atavKBD9wiJtaO1say1p.jpg" },
-// ];
+export const dummyCastsData = [
+  { name: "Milla Jovovich", profile_path: "https://image.tmdb.org/t/p/original/usWnHCzbADijULREZYSJ0qfM00y.jpg" },
+  { name: "Dave Bautista", profile_path: "https://image.tmdb.org/t/p/original/snk6JiXOOoRjPtHU5VMoy6qbd32.jpg" },
+  { name: "Arly Jover", profile_path: "https://image.tmdb.org/t/p/original/zmznPrQ9GSZwcOIUT0c3GyETwrP.jpg" },
+  { name: "Amara Okereke", profile_path: "https://image.tmdb.org/t/p/original/nTSPtzWu6deZTJtWXHUpACVznY4.jpg" },
+  { name: "Fraser James", profile_path: "https://image.tmdb.org/t/p/original/mGAPQG2OKTgdKFkp9YpvCSqcbgY.jpg" },
+  { name: "Deirdre Mullins", profile_path: "https://image.tmdb.org/t/p/original/lJm89neuiVlYISEqNpGZA5kTAnP.jpg" },
+  { name: "Sebastian Stankiewicz", profile_path: "https://image.tmdb.org/t/p/original/hLN0Ca09KwQOFLZLPIEzgTIbqqg.jpg" },
+  { name: "Tue Lunding", profile_path: "https://image.tmdb.org/t/p/original/qY4W0zfGBYzlCyCC0QDJS1Muoa0.jpg" },
+  { name: "Jacek Dzisiewicz", profile_path: "https://image.tmdb.org/t/p/original/6Ksb8ANhhoWWGnlM6O1qrySd7e1.jpg" },
+  { name: "Ian Hanmore", profile_path: "https://image.tmdb.org/t/p/original/yhI4MK5atavKBD9wiJtaO1say1p.jpg" },
+];
 
-// export const dummyTrailers = [
-//   {
-//     image: "https://img.youtube.com/vi/WpW36ldAqnM/maxresdefault.jpg",
-//     videoUrl: "https://www.youtube.com/watch?v=WpW36ldAqnM",
-//   },
-//   {
-//     image: "https://img.youtube.com/vi/-sAOWhvheK8/maxresdefault.jpg",
-//     videoUrl: "https://www.youtube.com/watch?v=-sAOWhvheK8",
-//   },
-//   {
-//     image: "https://img.youtube.com/vi/1pHDWnXmK7Y/maxresdefault.jpg",
-//     videoUrl: "https://www.youtube.com/watch?v=1pHDWnXmK7Y",
-//   },
-//   {
-//     image: "https://img.youtube.com/vi/umiKiW4En9g/maxresdefault.jpg",
-//     videoUrl: "https://www.youtube.com/watch?v=umiKiW4En9g",
-//   },
-// ];
+export const dummyTrailers = [
+  {
+    image: "https://img.youtube.com/vi/WpW36ldAqnM/maxresdefault.jpg",
+    videoUrl: "https://www.youtube.com/watch?v=WpW36ldAqnM",
+  },
+  {
+    image: "https://img.youtube.com/vi/-sAOWhvheK8/maxresdefault.jpg",
+    videoUrl: "https://www.youtube.com/watch?v=-sAOWhvheK8",
+  },
+  {
+    image: "https://img.youtube.com/vi/1pHDWnXmK7Y/maxresdefault.jpg",
+    videoUrl: "https://www.youtube.com/watch?v=1pHDWnXmK7Y",
+  },
+  {
+    image: "https://img.youtube.com/vi/umiKiW4En9g/maxresdefault.jpg",
+    videoUrl: "https://www.youtube.com/watch?v=umiKiW4En9g",
+  },
+];
 
-// export interface DummyShow {
-//   _id: string;
-//   id: number;
-//   title: string;
-//   overview: string;
-//   poster_path: string;
-//   backdrop_path: string;
-//   genres: Array<{ id: number; name: string }>;
-//   casts: typeof dummyCastsData;
-//   release_date: string;
-//   original_language: string;
-//   tagline: string;
-//   vote_average: number;
-//   vote_count: number;
-//   runtime: number;
-// }
+export interface DummyShow {
+  _id: string;
+  id: number;
+  title: string;
+  overview: string;
+  poster_path: string;
+  backdrop_path: string;
+  genres: Array<{ id: number; name: string }>;
+  casts: typeof dummyCastsData;
+  release_date: string;
+  original_language: string;
+  tagline: string;
+  vote_average: number;
+  vote_count: number;
+  runtime: number;
+}
 
-// export const dummyShowsData: DummyShow[] = [
-//   {
-//     _id: "324544",
-//     id: 324544,
-//     title: "In the Lost Lands",
-//     overview: "A queen sends the powerful and feared sorceress Gray Alys to the ghostly wilderness of the Lost Lands in search of a magical power, where she and her guide, the drifter Boyce, must outwit and outfight both man and demon.",
-//     poster_path: "https://image.tmdb.org/t/p/original/dDlfjR7gllmr8HTeN6rfrYhTdwX.jpg",
-//     backdrop_path: "https://image.tmdb.org/t/p/original/op3qmNhvwEvyT7UFyPbIfQmKriB.jpg",
-//     genres: [
-//       { id: 28, name: "Action" },
-//       { id: 14, name: "Fantasy" },
-//       { id: 12, name: "Adventure" },
-//     ],
-//     casts: dummyCastsData,
-//     release_date: "2025-02-27",
-//     original_language: "en",
-//     tagline: "She seeks the power to free her people.",
-//     vote_average: 6.4,
-//     vote_count: 15000,
-//     runtime: 102,
-//   },
-//   {
-//     _id: "1232546",
-//     id: 1232546,
-//     title: "Until Dawn",
-//     overview: "One year after her sister Melanie mysteriously disappeared, Clover and her friends head into the remote valley where she vanished in search of answers. Exploring an abandoned visitor center, they find themselves stalked by a masked killer and horrifically murdered one by one...only to wake up and find themselves back at the beginning of the same evening.",
-//     poster_path: "https://image.tmdb.org/t/p/original/juA4IWO52Fecx8lhAsxmDgy3M3.jpg",
-//     backdrop_path: "https://image.tmdb.org/t/p/original/icFWIk1KfkWLZnugZAJEDauNZ94.jpg",
-//     genres: [
+export const dummyShowsData: DummyShow[] = [
+  {
+    _id: "324544",
+    id: 324544,
+    title: "In the Lost Lands",
+    overview: "A queen sends the powerful and feared sorceress Gray Alys to the ghostly wilderness of the Lost Lands in search of a magical power, where she and her guide, the drifter Boyce, must outwit and outfight both man and demon.",
+    poster_path: "https://image.tmdb.org/t/p/original/dDlfjR7gllmr8HTeN6rfrYhTdwX.jpg",
+    backdrop_path: "https://image.tmdb.org/t/p/original/op3qmNhvwEvyT7UFyPbIfQmKriB.jpg",
+    genres: [
+      { id: 28, name: "Action" },
+      { id: 14, name: "Fantasy" },
+      { id: 12, name: "Adventure" },
+    ],
+    casts: dummyCastsData,
+    release_date: "2025-02-27",
+    original_language: "en",
+    tagline: "She seeks the power to free her people.",
+    vote_average: 6.4,
+    vote_count: 15000,
+    runtime: 102,
+  },
+  {
+    _id: "1232546",
+    id: 1232546,
+    title: "Until Dawn",
+    overview: "One year after her sister Melanie mysteriously disappeared, Clover and her friends head into the remote valley where she vanished in search of answers. Exploring an abandoned visitor center, they find themselves stalked by a masked killer and horrifically murdered one by one...only to wake up and find themselves back at the beginning of the same evening.",
+    poster_path: "https://image.tmdb.org/t/p/original/juA4IWO52Fecx8lhAsxmDgy3M3.jpg",
+    backdrop_path: "https://image.tmdb.org/t/p/original/icFWIk1KfkWLZnugZAJEDauNZ94.jpg",
+    genres: [
       { id: 27, name: "Horror" },
       { id: 9648, name: "Mystery" },
     ],
