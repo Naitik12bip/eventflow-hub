@@ -359,7 +359,7 @@ const Checkout = () => {
                   <img
                     src="/Logo1.png"
                     alt="EVENTEASE logo"
-                    className="h-6"
+                    className="h-10"
                   />
                   <span className="text-muted-foreground text-sm">Secure payments powered by Razorpay</span>
                 </div>

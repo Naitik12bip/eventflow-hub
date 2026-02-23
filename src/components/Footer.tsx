@@ -73,7 +73,7 @@ export const Footer = () => {
             © 2024 EVENTEASE. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <img src="/Logo1.png" alt="EVENTEASE logo" className="h-6 opacity-60" />
+            <img src="/Logo1.png" alt="EVENTEASE logo" className="h-10 opacity-60" />
             <span className="text-muted-foreground text-sm">Secure Payments</span>
           </div>
         </div>

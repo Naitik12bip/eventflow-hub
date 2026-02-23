@@ -110,7 +110,7 @@ export const Header = () => {
             <img
               src="/Logo1.png"
               alt="EVENTEASE logo"
-              className="w-10 h-10 object-contain transition-all duration-300 group-hover:scale-110"
+              className="w-20 h-20 object-contain transition-all duration-300 group-hover:scale-110"
             />
             <span className="font-display text-xl font-bold gradient-text hidden sm:block">
               EVENTEASE
