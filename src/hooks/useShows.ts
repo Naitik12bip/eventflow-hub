@@ -8,7 +8,6 @@ export interface ShowsQueryResult {
   events: Event[];
   isFallbackData: boolean;
 }
-
 // Map dummy show to Event format
 interface MovieWithShows {
   id: string;
@@ -27,6 +26,30 @@ interface MovieWithShows {
     location: string;
   }[];
 }
+
+const mapDummyShowToEvent = (show: DummyShow): Event => {
+  return {
+    id: show._id,
+    title: show.title,
+    description: show.overview,
+    category: 'movies' as EventCategory,
+    venue: 'Cinema Hall',
+    city: 'TBA',
+    date: show.release_date || new Date().toISOString().split('T')[0],
+    time: 'TBA',
+    image: show.poster_path,
+    price: {
+      min: 150,
+      max: 150,
+    },
+    rating: show.vote_average ?? 0,
+    duration: show.runtime ? `${show.runtime}m` : '2h',
+    featured: (show.vote_average ?? 0) >= 7.0,
+    seatsAvailable: 96,
+    totalSeats: 96,
+    genre: show.genres?.[0]?.name || 'Movie',
+  };
+};
 
 const mapMovieToEvent = (movie: MovieWithShows): Event => {
   const firstUpcomingShow = movie.shows
@@ -95,12 +118,20 @@ export const useShows = () => {
         .order('vote_average', { ascending: false });
 
       if (error) {
-        throw new Error(error.message || 'Failed to load live shows');
+        return {
+          events: dummyShowsData.map(mapDummyShowToEvent),
+          isFallbackData: true,
+        };
       }
-
       // Map dummy data to Event format
       const mappedEvents = ((data || []) as MovieWithShows[]).map(mapMovieToEvent);
 
+      if (mappedEvents.length === 0) {
+        return {
+          events: dummyShowsData.map(mapDummyShowToEvent),
+          isFallbackData: true,
+        };
+      }
       return {
         events: mappedEvents,
         isFallbackData: false, // Always false since we're using dummy data

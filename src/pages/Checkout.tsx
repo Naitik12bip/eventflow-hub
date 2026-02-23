@@ -358,7 +358,7 @@ const Checkout = () => {
                 <div className="flex items-center gap-3 mb-4">
                   <img
                     src="/Logo1.png"
-                    alt="EventHub logo"
+                    alt="EVENTEASE logo"
                     className="h-6"
                   />
                   <span className="text-muted-foreground text-sm">Secure payments powered by Razorpay</span>

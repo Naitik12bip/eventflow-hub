@@ -22,22 +22,26 @@ interface CreateBookingRequest {
 }
 
 interface CreateBookingResponse {
+  success: boolean;
   orderId: string;
   amount: number;
   currency: string;
+  bookingId: string | null;
+  keyId: string;
+  warning?: string;
 }
 
 interface VerifyPaymentRequest {
-  orderId: string;
-  paymentId: string;
-  signature: string;
-  userId: string;
-  showId: string;
-  seatIds: string[];
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+  bookingId: string | null;
 }
 
 interface VerifyPaymentResponse {
+  success: boolean;
   message: string;
+  bookingId?: string | null;
 }
 
 export interface FormattedBooking {

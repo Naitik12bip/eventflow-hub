@@ -86,11 +86,11 @@ export const Header = () => {
 
   const navLinks = [
     { href: '/', label: 'Home' },
-    { href: '/events', label: 'Events' },
     { href: '/community-events', label: 'Community' },
-    { href: '/events?category=movies', label: 'Movies' },
-    { href: '/events?category=concerts', label: 'Concerts' },
-    { href: '/events?category=sports', label: 'Sports' },
+    { href: '/movies', label: 'Movies' },
+    { href: '/concerts', label: 'Concerts' },
+    { href: '/sports', label: 'Sports' },
+    { href: '/comedy', label: 'Comedy' },
   ];
 
   // Memoize active link check to prevent re-renders
@@ -98,11 +98,8 @@ export const Header = () => {
     if (href === '/') {
       return location.pathname === '/';
     }
-    if (href.startsWith('/events?')) {
-      return location.pathname === '/events' && location.search === href.substring(7);
-    }
     return location.pathname === href;
-  }, [location.pathname, location.search]);
+  }, [location.pathname]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-strong">
@@ -112,7 +109,7 @@ export const Header = () => {
           <Link to="/" className="flex items-center gap-2 group">
             <img
               src="/Logo1.png"
-              alt="EventHub logo"
+              alt="EVENTEASE logo"
               className="w-10 h-10 object-contain transition-all duration-300 group-hover:scale-110"
             />
             <span className="font-display text-xl font-bold gradient-text hidden sm:block">
@@ -179,7 +176,7 @@ export const Header = () => {
             )}
 
             {/* Book Tickets CTA */}
-            <Link to="/events">
+            <Link to="/movies">
               <Button className="hidden sm:flex btn-primary">
                 <Ticket className="w-4 h-4 mr-2" />
                 Book Now

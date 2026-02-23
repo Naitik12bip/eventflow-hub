@@ -9,13 +9,13 @@ export const Footer = () => {
           {/* Brand */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <img src="/Logo1.png" alt="EventHub logo" className="w-10 h-10 object-contain" />
+              <img src="/Logo1.png" alt="EVENTEASE logo" className="w-10 h-10 object-contain" />
               <span className="font-display text-xl font-bold gradient-text">
                 EVENTEASE
               </span>
             </Link>
             <p className="text-muted-foreground text-sm">
-              Your one-stop destination for booking tickets to concerts, sports, movies, theater, and more.
+              Your one-stop destination for booking tickets to concerts, sports, movies, comedy, and more.
             </p>
             <div className="flex gap-4">
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
@@ -40,7 +40,6 @@ export const Footer = () => {
               <li><Link to="/concerts" className="text-muted-foreground hover:text-primary transition-colors text-sm">Concerts</Link></li>
               <li><Link to="/sports" className="text-muted-foreground hover:text-primary transition-colors text-sm">Sports</Link></li>
               <li><Link to="/movies" className="text-muted-foreground hover:text-primary transition-colors text-sm">Movies</Link></li>
-              <li><Link to="/theater" className="text-muted-foreground hover:text-primary transition-colors text-sm">Theater</Link></li>
               <li><Link to="/comedy" className="text-muted-foreground hover:text-primary transition-colors text-sm">Comedy</Link></li>
             </ul>
           </div>
@@ -74,7 +73,7 @@ export const Footer = () => {
             © 2024 EVENTEASE. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <img src="/Logo1.png" alt="EventHub logo" className="h-6 opacity-60" />
+            <img src="/Logo1.png" alt="EVENTEASE logo" className="h-6 opacity-60" />
             <span className="text-muted-foreground text-sm">Secure Payments</span>
           </div>
         </div>

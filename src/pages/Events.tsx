@@ -45,7 +45,7 @@ const Events = () => {
         <Alert className="mb-6" variant="destructive">
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Unable to connect to server. Showing demo events so you can still explore the UI.
+            Live events are unavailable right now. Showing demo events so you can still explore the UI.
           </AlertDescription>
         </Alert>
       )}
