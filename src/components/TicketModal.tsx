@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { formatPrice } from '@/data/events';
-import { Calendar, MapPin, Clock, Download, QrCode } from 'lucide-react';
+import { Calendar, MapPin, Clock, Download, QrCode, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,6 +20,8 @@ const generateQrUrl = (data: string, size = 200) =>
 
 const TicketModal = ({ booking }: TicketModalProps) => {
   const ticketRef = useRef<HTMLDivElement>(null);
+  const isConfirmed = booking.status === 'confirmed';
+  const actionLabel = isConfirmed ? 'View Ticket' : 'View Details';
 
   const qrData = JSON.stringify({
     bookingId: booking.id,
@@ -109,16 +111,29 @@ const TicketModal = ({ booking }: TicketModalProps) => {
           variant="outline"
           size="sm"
           className="gap-2"
-          disabled={booking.status !== 'confirmed'}
-        >
+          >
           <QrCode className="w-4 h-4" />
-          View Ticket
+          {actionLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">Your Ticket</DialogTitle>
+          <DialogTitle className="font-display">{isConfirmed ? 'Your Ticket' : 'Booking Details'}</DialogTitle>
         </DialogHeader>
+
+        {!isConfirmed && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-amber-200">Ticket confirmation is still in progress.</p>
+                <p className="mt-1 text-amber-100/90">
+                  Your booking details are available here now. Once payment confirmation finishes, this will become your downloadable ticket.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div ref={ticketRef} className="rounded-xl border border-border/50 overflow-hidden bg-muted/30">
           {/* Ticket Header */}
@@ -186,17 +201,27 @@ const TicketModal = ({ booking }: TicketModalProps) => {
           </div>
 
           {/* Amount */}
-          <div className="p-4 bg-primary/10 flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Total Paid</span>
-            <span className="font-display text-lg font-bold text-primary">
-              {formatPrice(booking.totalAmount)}
-            </span>
+          <div className="p-4 bg-primary/10 flex items-center justify-between gap-3">
+            <div>
+              <span className="text-sm text-muted-foreground">Total Paid</span>
+              <div className="font-display text-lg font-bold text-primary">
+                {formatPrice(booking.totalAmount)}
+              </div>
+            </div>
+            <div
+              className={isConfirmed
+                ? 'inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/15 px-3 py-1 text-xs font-medium text-success'
+                : 'inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-200'}
+            >
+              {isConfirmed ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+              {isConfirmed ? 'Confirmed ticket' : 'Pending confirmation'}
+            </div>
           </div>
         </div>
 
-        <Button onClick={handleDownload} className="w-full btn-primary gap-2 mt-2">
+        <Button onClick={handleDownload} className="w-full btn-primary gap-2 mt-2" disabled={!isConfirmed}>
           <Download className="w-4 h-4" />
-          Download / Print Ticket
+          {isConfirmed ? 'Download / Print Ticket' : 'Download available after confirmation'}
         </Button>
       </DialogContent>
     </Dialog>
