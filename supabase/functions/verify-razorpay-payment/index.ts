@@ -9,10 +9,7 @@ if (!supabaseUrl || !serviceKey) {
   throw new Error("Missing Supabase env");
 }
 
-const supabaseAdmin = createClient(
-  supabaseUrl,
-  serviceKey
-);
+const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,10 +35,10 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       console.error("No authorization header provided");
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Decode Clerk JWT to get user ID
@@ -49,32 +46,46 @@ serve(async (req) => {
     let userId: string;
     try {
       const parts = token.split(".");
-      if (parts.length < 2) throw new Error("Invalid token");
+      if (parts.length < 2) {
+        throw new Error("Invalid token");
+      };
 
-      const payloadBase64 = parts[1];
-      const payload = JSON.parse(atob(payloadBase64));
+      const payload = JSON.parse(atob(parts[1]));
       userId = payload.sub;
-      if (!userId) throw new Error("No sub claim in token");
-    } catch (e) {
-      console.error("JWT decode error:", e);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized - Invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+      if (!userId) {
+        throw new Error("No sub claim in token");
+      }
+    } catch (error) {
+      console.error("JWT decode error:", error);
+      return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-    console.log("Authenticated user:", userId);
-
-    // Parse request body
     const body: VerifyPaymentRequest = await req.json();
-    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, bookingId } = body;
+    const {
+      razorpay_payment_id,
+      razorpay_order_id,
+      razorpay_signature,
+      bookingId,
+    } = body;
 
-    console.log("Verify payment request:", { razorpay_order_id, razorpay_payment_id, bookingId, userId });
+    console.log("Verify payment request:", {
+      razorpay_order_id,
+      razorpay_payment_id,
+      bookingId,
+      userId,
+    });
 
     // Validate input - bookingId can be optional if payment is being verified without booking
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return new Response(
         JSON.stringify({ error: "Missing required payment details" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -84,7 +95,10 @@ serve(async (req) => {
       console.error("Razorpay secret not configured");
       return new Response(
         JSON.stringify({ error: "Payment verification not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -96,104 +110,94 @@ serve(async (req) => {
     const isValidSignature = expectedSignature === razorpay_signature;
     console.log("Signature verification:", isValidSignature);
 
-    // Use service role for database operations
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
     if (!isValidSignature) {
 
       if (bookingId) {
-        await supabaseAdmin
+        const { error: bookingError } = await supabaseAdmin
           .from("bookings")
           .update({ status: "failed" })
-          .eq("id", bookingId);
+          .eq("id", bookingId)
+          .eq("user_id", userId);
+
+        if (bookingError) {
+          console.error("Failed to mark booking as failed:", bookingError);
+        }
       }
 
-      await supabaseAdmin
+      const { error: paymentError } = await supabaseAdmin
         .from("payments")
         .update({ status: "failed" })
-        .eq("razorpay_order_id", razorpay_order_id);
+        .eq("razorpay_order_id", razorpay_order_id)
+        .eq("user_id", userId);
+    }
+    if (paymentError) {
+      console.error("Failed to mark payment as failed:", paymentError);
     }
 
     return new Response(
       JSON.stringify({ success: false, error: "Payment verification failed" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
-  }
-
-    // Payment verified successfully!
     console.log("Payment verified successfully");
 
-  // Update booking status to confirmed if bookingId exists
-  if (bookingId) {
-    const { error: bookingUpdateError } = await supabaseAdmin
-      .from("bookings")
-      .update({ status: "confirmed" })
-      .eq("id", bookingId);
+    if (bookingId) {
+      const { error: bookingUpdateError } = await supabaseAdmin
+        .from("bookings")
+        .update({
+          status: "confirmed",
+          razorpay_order_id,
+          razorpay_payment_id,
+        })
+        .eq("id", bookingId)
+        .eq("user_id", userId);
 
-    if (bookingUpdateError) {
-      console.error("Failed to update booking:", bookingUpdateError);
-    }
+      if (bookingUpdateError) {
+        console.error("Failed to update booking:", bookingUpdateError);
+      }
+      const { error: paymentUpdateError } = await supabaseAdmin
+        .from("payments")
+        .update({
+          razorpay_payment_id,
+          razorpay_signature,
+          status: "completed",
+          payment_date: new Date().toISOString(),
+        })
+        .eq("razorpay_order_id", razorpay_order_id)
+        .eq("user_id", userId);
+
+      if (paymentUpdateError) {
+        console.error("Failed to update payment:", paymentUpdateError);
+      }
+
+      console.log("Booking and payment updated successfully");
+
+      // Update payment record with payment details
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Payment verified successfully",
+          bookingId: bookingId ?? null,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    } catch (error) {
+      console.error("Verification error:", error);
+
+      return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
-
-  if (bookingId) {
-    const { data: booking, error: bookingFetchError } = await supabaseAdmin
-      .from("bookings")
-      .select("id, show_id, selected_seats")
-      .eq("id", bookingId)
-      .maybeSingle<BookingWithShow>();
-
-    if (bookingFetchError) {
-      console.error("Failed to load booking:", bookingFetchError);
-    }
-
-    await supabaseAdmin
-      .from("bookings")
-      .update({ status: "confirmed" })
-      .eq("id", bookingId);
-
-  }
-
-  // Update payment record with payment details
-  const { error: paymentUpdateError } = await supabaseAdmin
-    .from("payments")
-    .update({
-      razorpay_payment_id,
-      razorpay_signature,
-      status: "completed",
-      payment_date: new Date().toISOString(),
-    })
-    .eq("razorpay_order_id", razorpay_order_id);
-
-  if (paymentUpdateError) {
-    console.error("Failed to update payment:", paymentUpdateError);
-  }
-
-  console.log("Booking and payment updated successfully");
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      message: "Payment verified successfully",
-      bookingId,
-    }),
-    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-  );
-} catch (error) {
-  console.error("Verification error:", error);
-
-  return new Response(
-    JSON.stringify({
-      error: "Internal server error",
-      details: error instanceof Error ? error.message : String(error),
-    }),
-    {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
-  );
-}
-
-});
+}});
