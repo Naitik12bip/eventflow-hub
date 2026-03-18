@@ -40,6 +40,9 @@ const checkoutSchema = z.object({
     .refine((val) => /^\+?[1-9]\d{9,14}$/.test(val), 'Please enter a valid phone number'),
 });
 
+const RAZORPAY_EXTENSION_MESSAGE =
+  'A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received';
+
 interface BookingData {
   event: {
     id: string;
@@ -82,6 +85,27 @@ const Checkout = () => {
       navigate('/events');
     }
   }, [navigate]);
+
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const message =
+        event.reason instanceof Error
+          ? event.reason.message
+          : typeof event.reason === 'string'
+            ? event.reason
+            : '';
+
+      if (message.includes(RAZORPAY_EXTENSION_MESSAGE)) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
