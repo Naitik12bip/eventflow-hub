@@ -25,7 +25,7 @@ interface Show {
   movie_id: string;
   show_date_time: string;
   show_price: number;
-  occupied_seats: Record<string, any>;
+  occupied_seats: Record<string, boolean> | null;
   theater_name: string;
   location: string;
 }
@@ -219,7 +219,7 @@ serve(async (req) => {
       return {
         id: booking.id,
         movieTitle: movie?.title || "Unknown Movie",
-        moviePoster: movie?.poster_path || "/placeholder.svg",
+        moviePoster: movie?.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : "/placeholder.svg",
         movieOverview: movie?.overview || "",
         theater: show?.theater_name || "Unknown Theater",
         location: show?.location || "",

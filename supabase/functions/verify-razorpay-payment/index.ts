@@ -2,6 +2,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+if (!supabaseUrl || !serviceKey) {
+  throw new Error("Missing Supabase env");
+}
+
+const supabaseAdmin = createClient(
+  supabaseUrl,
+  serviceKey
+);
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -36,7 +48,10 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     let userId: string;
     try {
-      const payloadBase64 = token.split(".")[1];
+      const parts = token.split(".");
+      if (parts.length < 2) throw new Error("Invalid token");
+
+      const payloadBase64 = parts[1];
       const payload = JSON.parse(atob(payloadBase64));
       userId = payload.sub;
       if (!userId) throw new Error("No sub claim in token");
@@ -88,9 +103,7 @@ serve(async (req) => {
     );
 
     if (!isValidSignature) {
-      console.error("Invalid payment signature");
 
-      // Update booking status to failed if bookingId exists
       if (bookingId) {
         await supabaseAdmin
           .from("bookings")
@@ -98,59 +111,77 @@ serve(async (req) => {
           .eq("id", bookingId);
       }
 
-      // Update payment status to failed
       await supabaseAdmin
         .from("payments")
         .update({ status: "failed" })
         .eq("razorpay_order_id", razorpay_order_id);
-
-      return new Response(
-        JSON.stringify({ success: false, error: "Payment verification failed" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
+
+    return new Response(
+      JSON.stringify({ success: false, error: "Payment verification failed" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 
     // Payment verified successfully!
     console.log("Payment verified successfully");
 
-    // Update booking status to confirmed if bookingId exists
-    if (bookingId) {
-      const { error: bookingUpdateError } = await supabaseAdmin
-        .from("bookings")
-        .update({ status: "confirmed" })
-        .eq("id", bookingId);
+  // Update booking status to confirmed if bookingId exists
+  if (bookingId) {
+    const { error: bookingUpdateError } = await supabaseAdmin
+      .from("bookings")
+      .update({ status: "confirmed" })
+      .eq("id", bookingId);
 
-      if (bookingUpdateError) {
-        console.error("Failed to update booking:", bookingUpdateError);
-      }
+    if (bookingUpdateError) {
+      console.error("Failed to update booking:", bookingUpdateError);
+    }
+  }
+
+  if (bookingId) {
+    const { data: booking, error: bookingFetchError } = await supabaseAdmin
+      .from("bookings")
+      .select("id, show_id, selected_seats")
+      .eq("id", bookingId)
+      .maybeSingle<BookingWithShow>();
+
+    if (bookingFetchError) {
+      console.error("Failed to load booking:", bookingFetchError);
     }
 
-    // Update payment record with payment details
-    const { error: paymentUpdateError } = await supabaseAdmin
-      .from("payments")
-      .update({
-        razorpay_payment_id,
-        razorpay_signature,
-        status: "completed",
-        payment_date: new Date().toISOString(),
-      })
-      .eq("razorpay_order_id", razorpay_order_id);
+    await supabaseAdmin
+      .from("bookings")
+      .update({ status: "confirmed" })
+      .eq("id", bookingId);
 
-    if (paymentUpdateError) {
-      console.error("Failed to update payment:", paymentUpdateError);
-    }
+  }
 
-    console.log("Booking and payment updated successfully");
+  // Update payment record with payment details
+  const { error: paymentUpdateError } = await supabaseAdmin
+    .from("payments")
+    .update({
+      razorpay_payment_id,
+      razorpay_signature,
+      status: "completed",
+      payment_date: new Date().toISOString(),
+    })
+    .eq("razorpay_order_id", razorpay_order_id);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Payment verified successfully",
-        bookingId,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
+  if (paymentUpdateError) {
+    console.error("Failed to update payment:", paymentUpdateError);
+  }
+
+  console.log("Booking and payment updated successfully");
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: "Payment verified successfully",
+      bookingId,
+    }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+} catch (error) {
   console.error("Verification error:", error);
 
   return new Response(

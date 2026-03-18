@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/clerk-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getTMDBImageUrl } from '@/lib/api';
 
 const getEdgeFunctionToken = async (
   getToken: (options?: { template?: string }) => Promise<string | null>
@@ -44,23 +45,92 @@ interface VerifyPaymentResponse {
   bookingId?: string | null;
 }
 
+interface UserBookingsApiResponseItem {
+  id: string;
+  movieTitle?: string;
+  moviePoster?: string;
+  movieOverview?: string;
+  theater?: string;
+  location?: string;
+  showDateTime?: string;
+  selectedSeats?: string[];
+  totalAmount?: number;
+  convenienceFee?: number;
+  totalPrice?: number;
+  status?: string;
+  paymentStatus?: string;
+  razorpayPaymentId?: string | null;
+  createdAt?: string;
+  eventTitle?: string;
+  eventImage?: string;
+  eventDescription?: string;
+  eventDate?: string;
+  eventTime?: string;
+  venue?: string;
+  city?: string;
+  seats?: string[];
+  ticketCount?: number;
+  category?: string;
+  genre?: string;
+}
+
 export interface FormattedBooking {
   id: string;
-  movieTitle: string;
-  moviePoster: string;
-  movieOverview: string;
-  theater: string;
-  location: string;
-  showDateTime: string;
-  selectedSeats: string[];
+  eventTitle: string;
+  eventImage: string;
+  eventDescription: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
+  city: string;
+  seats: string[];
+  ticketCount: number;
   totalAmount: number;
   convenienceFee: number;
   totalPrice: number;
   status: string;
   paymentStatus: string;
   razorpayPaymentId: string | null;
+  category: string;
+  genre: string;
   createdAt: string;
 }
+
+const normalizeBooking = (booking: UserBookingsApiResponseItem): FormattedBooking => {
+  const seatList = booking.seats ?? booking.selectedSeats ?? [];
+  const rawTotalAmount = booking.totalAmount ?? 0;
+  const convenienceFee = booking.convenienceFee ?? 0;
+  const totalPrice = booking.totalPrice ?? rawTotalAmount;
+  const totalAmount = totalPrice;
+  const showDate = booking.showDateTime ? new Date(booking.showDateTime) : null;
+  const poster = booking.eventImage ?? booking.moviePoster ?? '/placeholder.svg';
+
+  return {
+    id: booking.id,
+    eventTitle: booking.eventTitle ?? booking.movieTitle ?? 'Untitled event',
+    eventImage: poster.startsWith('http') || poster.startsWith('/') ? poster : getTMDBImageUrl(poster),
+    eventDescription: booking.eventDescription ?? booking.movieOverview ?? '',
+    eventDate: booking.eventDate ?? showDate?.toISOString() ?? '',
+    eventTime:
+      booking.eventTime ??
+      (showDate
+        ? showDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        : ''),
+    venue: booking.venue ?? booking.theater ?? 'Venue TBA',
+    city: booking.city ?? booking.location ?? '',
+    seats: seatList,
+    ticketCount: booking.ticketCount ?? seatList.length,
+    totalAmount,
+    convenienceFee,
+    totalPrice,
+    status: booking.status ?? 'pending',
+    paymentStatus: booking.paymentStatus ?? 'unknown',
+    razorpayPaymentId: booking.razorpayPaymentId ?? null,
+    category: booking.category ?? 'movies',
+    genre: booking.genre ?? 'Movie',
+    createdAt: booking.createdAt ?? new Date().toISOString(),
+  };
+};
 
 // Create a booking and get Razorpay order
 export const useCreateBooking = () => {
@@ -128,6 +198,9 @@ export const useVerifyPayment = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userBookings'] });
+      queryClient.invalidateQueries({ queryKey: ['shows'] });
+      queryClient.invalidateQueries({ queryKey: ['movieDetails'] });
+      queryClient.invalidateQueries({ queryKey: ['occupiedSeats'] });
     },
   });
 };
@@ -158,7 +231,8 @@ export const useUserBookings = () => {
         throw new Error(response?.error || 'Failed to fetch bookings');
       }
 
-      return response.bookings;
+      return ((response.bookings ?? []) as UserBookingsApiResponseItem[]).map(normalizeBooking);
+      
     },
     enabled: !!getToken,
   });
