@@ -71,7 +71,7 @@ const MyBookings = () => {
               Failed to load bookings
             </h2>
             <p className="text-muted-foreground mb-4">
-              Please make sure your backend is running and try again.
+              Please check your connection and try again.
             </p>
             <Button onClick={() => window.location.reload()}>
               Retry
