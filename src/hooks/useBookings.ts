@@ -135,10 +135,13 @@ const normalizeBooking = (booking: UserBookingsApiResponseItem): FormattedBookin
 // Create a booking and get Razorpay order
 export const useCreateBooking = () => {
   const queryClient = useQueryClient();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, userId } = useAuth();
 
   return useMutation({
     mutationFn: async (data: CreateBookingRequest): Promise<CreateBookingResponse> => {
+      if (!isLoaded || !userId) {
+        throw new Error('Authentication required. Please sign in and try again.');
+      }
       const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in and try again.');
@@ -170,10 +173,13 @@ export const useCreateBooking = () => {
 // Verify Razorpay payment
 export const useVerifyPayment = () => {
   const queryClient = useQueryClient();
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, userId } = useAuth();
 
   return useMutation({
     mutationFn: async (data: VerifyPaymentRequest): Promise<VerifyPaymentResponse> => {
+      if (!isLoaded || !userId) {
+        throw new Error('Authentication required. Please sign in and try again.');
+      }
       const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in and try again.');
@@ -207,11 +213,14 @@ export const useVerifyPayment = () => {
 
 // Get user bookings
 export const useUserBookings = () => {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, userId } = useAuth();
 
   return useQuery({
-    queryKey: ['userBookings'],
+    queryKey: ['userBookings',userId],
     queryFn: async (): Promise<FormattedBooking[]> => {
+      if (!isLoaded || !userId) {
+        throw new Error('Authentication required. Please sign in and try again.');
+      }
       const token = await getEdgeFunctionToken(getToken);
       if (!token) {
         throw new Error('Authentication required. Please sign in and try again.');
@@ -234,6 +243,6 @@ export const useUserBookings = () => {
       return ((response.bookings ?? []) as UserBookingsApiResponseItem[]).map(normalizeBooking);
       
     },
-    enabled: !!getToken,
+    enabled: isLoaded && !!userId,
   });
 };
