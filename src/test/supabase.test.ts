@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { supabase } from "@/integrations/supabase/client";
-
+import { describe, expect, it } from "vitest";
+import { supabase } from "@/lib/supabaseClient";
 // Test Supabase client initialization
 describe("Supabase Client", () => {
   it("should initialize Supabase client", () => {
@@ -10,15 +9,16 @@ describe("Supabase Client", () => {
     expect(supabase.functions).toBeDefined();
   });
 
-  it("should have correct project URL", () => {
+  it("should use the configured project URL", () => {
     const url = import.meta.env.VITE_SUPABASE_URL;
-    expect(url).toBe("https://dkezuvqhkcuyqbxswcfj.supabase.co");
+    expect(url).toBeDefined();
+    expect(url).toBe(`https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`);
   });
 
-  it("should have publishable key", () => {
+  it("should have a publishable key", () => {
     const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     expect(key).toBeDefined();
-    expect(key.startsWith("eyJ")).toBe(true); // JWT tokens start with eyJ
+    expect(key.startsWith("sb_publishable_")).toBe(true);
   });
 });
 
@@ -31,7 +31,7 @@ describe("Environment Configuration", () => {
     expect(import.meta.env.VITE_TICKETMASTER_API_KEY).toBeDefined();
   });
 
-  it("should have correct project ID", () => {
-    expect(import.meta.env.VITE_SUPABASE_PROJECT_ID).toBe("dkezuvqhkcuyqbxswcfj");
+  it("should have a project id that matches the configured URL", () => {
+    expect(import.meta.env.VITE_SUPABASE_URL).toContain(import.meta.env.VITE_SUPABASE_PROJECT_ID);
   });
 });

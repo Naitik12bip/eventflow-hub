@@ -1,6 +1,5 @@
- import { ClerkProvider as BaseClerkProvider, useAuth } from '@clerk/clerk-react';
- import { ReactNode, useEffect } from 'react';
- import { setTokenGetter } from '@/lib/api';
+ import { ClerkProvider as BaseClerkProvider } from '@clerk/clerk-react';
+ import { ReactNode } from 'react';
  
  // Clerk publishable key from environment
  const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 'pk_test_cG9saXRlLW1vbmFyY2gtMzguY2xlcmsuYWNjb3VudHMuZGV2JA';
@@ -8,24 +7,6 @@
  if (!CLERK_PUBLISHABLE_KEY) {
    console.warn('Missing VITE_CLERK_PUBLISHABLE_KEY environment variable');
  }
- 
- // Component to set up the API token getter
- const TokenSetup = ({ children }: { children: ReactNode }) => {
-   const { getToken } = useAuth();
- 
-   useEffect(() => {
-     // Set the token getter for API calls
-     setTokenGetter(async () => {
-       try {
-         return await getToken();
-       } catch {
-         return null;
-       }
-     });
-   }, [getToken]);
- 
-   return <>{children}</>;
- };
  
  interface ClerkProviderProps {
    children: ReactNode;
@@ -58,9 +39,7 @@
          },
        }}
      >
-       <TokenSetup>
-         {children}
-       </TokenSetup>
+      {children}
      </BaseClerkProvider>
    );
  };

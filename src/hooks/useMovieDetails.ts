@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { dummyShowsData, dummyDateTimeData, dummyOccupiedSeats } from '@/data/dummyData';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { getTMDBImageUrl } from '@/lib/api';
 
 export interface ShowTime {
