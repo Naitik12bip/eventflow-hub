@@ -1,6 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const decodeJwtPayload = (token: string): Record<string, unknown> => {
+  const [, payload] = token.split(".");
+
+  if (!payload) {
+    throw new Error("JWT payload missing");
+  }
+
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+
+  return JSON.parse(atob(padded));
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -45,11 +58,16 @@ serve(async (req) => {
     let userId: string;
 
     try {
-      const payloadBase64 = token.split(".")[1];
-      const payload = JSON.parse(atob(payloadBase64));
-      userId = payload.sub;
-      if (!userId) throw new Error("No sub claim in token");
-    } catch (e) {
+      const payload = decodeJwtPayload(token);
+      const subject = payload.sub;
+
+      if (typeof subject !== "string" || !subject) {
+        throw new Error("JWT subject missing");
+      }
+
+      userId = subject;
+    } catch (decodeError) {
+      console.error("JWT decode error:", decodeError);
       return new Response(
         JSON.stringify({ error: "Unauthorized - Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
