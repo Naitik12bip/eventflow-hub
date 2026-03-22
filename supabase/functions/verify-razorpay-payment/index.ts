@@ -40,6 +40,13 @@ serve(async (req) => {
   }
 
   try {
+    if (!supabaseAdmin) {
+      console.error("Missing Supabase env");
+      return new Response(JSON.stringify({ error: "Server misconfiguration" }), {
+        status: 500,
+        headers: corsHeaders,
+      });
+    }
     // ✅ AUTH HEADER CHECK
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
