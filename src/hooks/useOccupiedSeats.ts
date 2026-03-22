@@ -15,12 +15,8 @@ export const useOccupiedSeats = (showId: string | undefined) => {
         .eq('id', showId)
         .single();
 
-      if (error) {
-        throw new Error(error.message || 'Failed to fetch occupied seats');
-      }
-
-      if (!data) {
-        throw new Error('Show not found');
+      if (error || !data) {
+        return [];
       }
 
       // occupied_seats is a JSONB object, extract the seat IDs
