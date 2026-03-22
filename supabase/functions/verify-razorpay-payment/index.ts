@@ -2,6 +2,19 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
+const decodeJwtPayload = (token: string): Record<string, unknown> => {
+  const [, payload] = token.split(".");
+
+  if (!payload) {
+    throw new Error("JWT payload missing");
+  }
+
+  const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+
+  return JSON.parse(atob(padded));
+};
+
 // ✅ ENV VARIABLES (FAIL EARLY)
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -58,20 +71,24 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
 
-    // ✅ SECURE USER FETCH (NO MANUAL JWT DECODE)
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(token);
+    let userId: string;
 
-    if (userError || !user) {
+    try {
+      const payload = decodeJwtPayload(token);
+      const subject = payload.sub;
+
+      if (typeof subject !== "string" || !subject) {
+        throw new Error("JWT subject missing");
+      }
+
+      userId = subject;
+    } catch (decodeError) {
+      console.error("JWT decode error:", decodeError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const userId = user.id;
 
     // ✅ REQUEST BODY
     const body: VerifyPaymentRequest = await req.json();
