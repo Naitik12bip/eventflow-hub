@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+  "Content-Type": "application/json",
 };
 
 interface CreateOrderRequest {
@@ -84,7 +87,7 @@ serve(async (req) => {
 
     // ==================== CREATE RAZORPAY ORDER ====================
     const razorpayAuth = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
-    
+
     const razorpayResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: {
@@ -140,7 +143,7 @@ serve(async (req) => {
     };
 
     console.log("Creating booking with:", bookingInsert);
-    
+
     const { data: booking, error: bookingError } = await supabaseAdmin
       .from("bookings")
       .insert(bookingInsert)
@@ -149,7 +152,7 @@ serve(async (req) => {
 
     if (bookingError) {
       console.error("Booking insert error:", bookingError);
-      
+
       // ✅ IF BOOKING FAILS, STILL RETURN RAZORPAY ORDER
       // This way payment can still proceed
       return new Response(
@@ -167,7 +170,7 @@ serve(async (req) => {
     }
 
     // ==================== CREATE PAYMENT RECORD ====================
-    await supabaseAdmin
+    const { error: paymentError } = await supabaseAdmin
       .from("payments")
       .insert({
         user_id: userId,
@@ -175,9 +178,11 @@ serve(async (req) => {
         razorpay_order_id: razorpayOrder.id,
         amount: totalAmount,
         status: "pending",
-      })
-      .then()
-      .catch(e => console.error("Payment record error:", e));
+      });
+
+    if (paymentError) {
+      console.error("Payment record error:", paymentError);
+    }
 
     // ==================== SUCCESS RESPONSE ====================
     return new Response(
@@ -194,7 +199,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Fatal error:", error);
-    
+
     // ✅ EVEN ON FATAL ERROR, TRY TO RETURN RAZORPAY ORDER IF CREATED
     return new Response(
       JSON.stringify({

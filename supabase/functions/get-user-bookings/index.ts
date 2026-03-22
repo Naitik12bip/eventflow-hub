@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+  "Content-Type": "application/json",
 };
 
 interface Booking {
@@ -102,7 +105,7 @@ serve(async (req) => {
     // Use service role to query across tables
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
+
     if (!supabaseUrl || !supabaseKey) {
       console.error("Missing environment variables");
       return new Response(
@@ -124,9 +127,9 @@ serve(async (req) => {
     if (bookingsError) {
       console.error("Bookings query error:", bookingsError);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Failed to fetch bookings",
-          details: bookingsError.message 
+          details: bookingsError.message
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -144,7 +147,7 @@ serve(async (req) => {
     // Fetch shows for all bookings
     const showIds = bookings.map((b) => b.show_id);
     const showsMap: Record<string, Show> = {};
-    
+
     if (showIds.length > 0) {
       console.log(`Fetching ${showIds.length} shows...`);
       const { data: shows, error: showsError } = await supabaseAdmin
@@ -156,7 +159,7 @@ serve(async (req) => {
         console.error("Shows query error:", showsError);
         throw new Error("Failed to fetch shows");
       }
-      
+
       if (shows) {
         for (const show of shows) {
           showsMap[show.id] = show;
@@ -168,7 +171,7 @@ serve(async (req) => {
     // Fetch movies for all shows
     const movieIds = Object.values(showsMap).map((s) => s.movie_id);
     const moviesMap: Record<string, Movie> = {};
-    
+
     if (movieIds.length > 0) {
       console.log(`Fetching ${movieIds.length} movies...`);
       const { data: movies, error: moviesError } = await supabaseAdmin
@@ -180,7 +183,7 @@ serve(async (req) => {
         console.error("Movies query error:", moviesError);
         throw new Error("Failed to fetch movies");
       }
-      
+
       if (movies) {
         for (const movie of movies) {
           moviesMap[movie.id] = movie;
@@ -236,7 +239,7 @@ serve(async (req) => {
     });
 
     console.log(`Returning ${formattedBookings.length} formatted bookings`);
-    
+
     return new Response(
       JSON.stringify({ success: true, bookings: formattedBookings }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -244,7 +247,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in get-user-bookings:", error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: "Internal server error",
         details: error instanceof Error ? error.message : "Unknown error"
       }),

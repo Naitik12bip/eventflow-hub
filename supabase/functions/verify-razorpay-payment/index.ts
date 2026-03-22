@@ -2,21 +2,30 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
 
+// ✅ ENV VARIABLES (FAIL EARLY)
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
 
 if (!supabaseUrl || !serviceKey) {
-  throw new Error("Missing Supabase env");
+  throw new Error("Missing Supabase environment variables");
 }
 
+if (!razorpayKeySecret) {
+  throw new Error("Missing Razorpay secret");
+}
+
+// ✅ SUPABASE ADMIN CLIENT (NEVER NULL)
 const supabaseAdmin = createClient(supabaseUrl, serviceKey);
 
+// ✅ CORS
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type",
 };
 
+// ✅ TYPES
 interface VerifyPaymentRequest {
   razorpay_payment_id: string;
   razorpay_order_id: string;
@@ -24,15 +33,16 @@ interface VerifyPaymentRequest {
   bookingId?: string;
 }
 
+// ✅ SERVER
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // ✅ AUTH HEADER CHECK
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      console.error("No authorization header provided");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -40,28 +50,23 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    let userId: string;
 
-    try {
-      const parts = token.split(".");
-      if (parts.length < 2) {
-        throw new Error("Invalid token");
-      }
+    // ✅ SECURE USER FETCH (NO MANUAL JWT DECODE)
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(token);
 
-      const payload = JSON.parse(atob(parts[1]));
-      userId = payload.sub;
-
-      if (!userId) {
-        throw new Error("No sub claim in token");
-      }
-    } catch (error) {
-      console.error("JWT decode error:", error);
-      return new Response(JSON.stringify({ error: "Unauthorized - Invalid token" }), {
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const userId = user.id;
+
+    // ✅ REQUEST BODY
     const body: VerifyPaymentRequest = await req.json();
     const {
       razorpay_payment_id,
@@ -70,78 +75,62 @@ serve(async (req) => {
       bookingId,
     } = body;
 
-    console.log("Verify payment request:", {
-      razorpay_order_id,
-      razorpay_payment_id,
-      bookingId,
-      userId,
-    });
-
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
       return new Response(
-        JSON.stringify({ error: "Missing required payment details" }),
+        JSON.stringify({ error: "Missing payment details" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        }
       );
     }
 
-    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
-    if (!razorpayKeySecret) {
-      console.error("Razorpay secret not configured");
-      return new Response(
-        JSON.stringify({ error: "Payment verification not configured" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    console.log("Verifying payment:", {
+      razorpay_order_id,
+      razorpay_payment_id,
+      userId,
+    });
 
+    // ✅ SIGNATURE VERIFY
     const expectedSignature = createHmac("sha256", razorpayKeySecret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
     const isValidSignature = expectedSignature === razorpay_signature;
-    console.log("Signature verification:", isValidSignature);
 
+    // ❌ INVALID SIGNATURE
     if (!isValidSignature) {
+      console.error("Invalid signature");
+
       if (bookingId) {
-        const { error: bookingError } = await supabaseAdmin
+        await supabaseAdmin
           .from("bookings")
           .update({ status: "failed" })
           .eq("id", bookingId)
           .eq("user_id", userId);
-
-        if (bookingError) {
-          console.error("Failed to mark booking as failed:", bookingError);
-        }
       }
 
-      const { error: paymentError } = await supabaseAdmin
+      await supabaseAdmin
         .from("payments")
         .update({ status: "failed" })
         .eq("razorpay_order_id", razorpay_order_id)
         .eq("user_id", userId);
 
-      if (paymentError) {
-        console.error("Failed to mark payment as failed:", paymentError);
-      }
-
       return new Response(
-        JSON.stringify({ success: false, error: "Payment verification failed" }),
+        JSON.stringify({ success: false, error: "Verification failed" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        }
       );
     }
 
-    console.log("Payment verified successfully");
+    // ✅ SUCCESS
+    console.log("Payment verified");
 
+    // UPDATE BOOKING
     if (bookingId) {
-      const { error: bookingUpdateError } = await supabaseAdmin
+      const { error: bookingError } = await supabaseAdmin
         .from("bookings")
         .update({
           status: "confirmed",
@@ -151,12 +140,13 @@ serve(async (req) => {
         .eq("id", bookingId)
         .eq("user_id", userId);
 
-      if (bookingUpdateError) {
-        console.error("Failed to update booking:", bookingUpdateError);
+      if (bookingError) {
+        console.error("Booking update error:", bookingError);
       }
     }
 
-    const { error: paymentUpdateError } = await supabaseAdmin
+    // UPDATE PAYMENT
+    const { error: paymentError } = await supabaseAdmin
       .from("payments")
       .update({
         razorpay_payment_id,
@@ -167,11 +157,9 @@ serve(async (req) => {
       .eq("razorpay_order_id", razorpay_order_id)
       .eq("user_id", userId);
 
-    if (paymentUpdateError) {
-      console.error("Failed to update payment:", paymentUpdateError);
+    if (paymentError) {
+      console.error("Payment update error:", paymentError);
     }
-
-    console.log("Booking and payment updated successfully");
 
     return new Response(
       JSON.stringify({
@@ -182,10 +170,10 @@ serve(async (req) => {
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      }
     );
   } catch (error) {
-    console.error("Verification error:", error);
+    console.error("Server error:", error);
 
     return new Response(
       JSON.stringify({
@@ -195,7 +183,7 @@ serve(async (req) => {
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      }
     );
   }
 });
